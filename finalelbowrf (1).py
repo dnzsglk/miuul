@@ -40,146 +40,23 @@ import streamlit as st
 # ===============================
 # TEMA STATE
 # ===============================
-if "newyear_theme" not in st.session_state:
-    st.session_state["newyear_theme"] = True
+import streamlit as st
+from streamlit_lottie import st_lottie
+import requests
 
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
-# ===============================
-# SIDEBAR TOGGLE
-# ===============================
-with st.sidebar:
-    st.markdown("### 🎨 Tema")
-    st.session_state["newyear_theme"] = st.toggle(
-        "🎄 Yılbaşı Teması",
-        value=st.session_state["newyear_theme"]
-    )
+# Kar yağışı animasyonu linki
+lottie_snow = load_lottieurl("https://assets8.lottiefiles.com/packages/lf20_96as4imv.json")
 
+# Animasyonu en üste sabitleyelim
+st_lottie(lottie_snow, speed=1, reverse=False, loop=True, quality="low", height=300, key="snow")
 
-# ===============================
-# YILBAŞI TEMA CSS
-# ===============================
-# ---------- YILBAŞI TEMA ----------
-def newyear_css():
-    st.markdown("""
-    <style>
-    html, body, [data-testid="stApp"],
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"] {
-        background-color: #0b1d13 !important;
-        color: #fefae0 !important;
-    }
-    section[data-testid="stSidebar"] {
-        background-color: #132e1f !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def normal_css():
-    st.markdown("""
-    <style>
-    html, body, [data-testid="stApp"],
-    [data-testid="stAppViewContainer"],
-    [data-testid="stMain"] {
-        background-color: #020617 !important;
-        color: #e5e7eb !important;
-    }
-    section[data-testid="stSidebar"] {
-        background-color: #020617 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-# ---------- KAR EFEKTİ ----------
-def snow_effect():
-    components.html(
-        """
-        <style>
-        canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 999999;
-        }
-        </style>
-
-        <canvas id="snow"></canvas>
-
-        <script>
-        const canvas = document.getElementById("snow");
-        const ctx = canvas.getContext("2d");
-
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.addEventListener("resize", resize);
-        resize();
-
-        let flakes = [];
-        const count = 150;
-
-        for (let i = 0; i < count; i++) {
-            flakes.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                r: Math.random() * 4 + 1,
-                d: Math.random() * count
-            });
-        }
-
-        let angle = 0;
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255,255,255,0.8)";
-            ctx.beginPath();
-
-            for (let i = 0; i < count; i++) {
-                const f = flakes[i];
-                ctx.moveTo(f.x, f.y);
-                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
-            }
-            ctx.fill();
-
-            angle += 0.01;
-            for (let i = 0; i < count; i++) {
-                const f = flakes[i];
-                f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
-                f.x += Math.sin(angle) * 0.5;
-
-                if (f.y > canvas.height) {
-                    flakes[i] = {
-                        x: Math.random() * canvas.width,
-                        y: 0,
-                        r: f.r,
-                        d: f.d
-                    };
-                }
-            }
-            requestAnimationFrame(draw);
-        }
-        draw();
-        </script>
-        """,
-        height=1,
-    )
-
-# ===============================
-# AKTİF TEMA
-# ===============================
-if "newyear_theme" not in st.session_state:
-    st.session_state["newyear_theme"] = True
-
-if st.session_state["newyear_theme"]:
-    newyear_css()
-    snow_effect()
-else:
-    normal_css()
-
-
-
+st.header("🎅 Yılbaşı Uygulaması")
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
