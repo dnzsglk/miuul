@@ -37,33 +37,96 @@ st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="�
 
 import streamlit as st
 
-# ===============================
-# TEMA STATE
-# ===============================
-import streamlit as st
-from streamlit_lottie import st_lottie
-import requests
+def add_snow_effect():
+    st.markdown(
+        """
+        <style>
+        #particles-js {
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            z-index: -1; /* İçeriğin arkasında kalması için */
+            background-color: #0b1523; /* Koyu kış gecesi rengi */
+        }
+        
+        .snow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+        </style>
+        
+        <div class="snow">
+            <canvas id="snow-canvas"></canvas>
+        </div>
 
-def load_lottieurl(url: str):
-    try:
-        r = requests.get(url)
-        if r.status_code != 200:
-            return None
-        return r.json()
-    except Exception:
-        return None
+        <script>
+        // Basit bir JS kar efekti motoru (SCSS yerine en kararlı çözüm)
+        const canvas = document.getElementById('snow-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, snowflakes;
 
-# Kar yağışı animasyonu (URL'yi yeniledim)
-lottie_url = "https://assets8.lottiefiles.com/packages/lf20_96as4imv.json"
-lottie_snow = load_lottieurl(lottie_url)
+        function init() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            snowflakes = [];
+            for (let i = 0; i < 150; i++) {
+                snowflakes.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    r: Math.random() * 4 + 1,
+                    d: Math.random() * 1
+                });
+            }
+        }
 
-# Hata kontrolü: Eğer veri gelmediyse bileşeni çağırma
-if lottie_snow:
-    st_lottie(lottie_snow, speed=1, loop=True, height=300, key="snow")
-else:
-    # Kar gelmezse klasik Streamlit karını kullan
-    st.snow()
-    st.warning("Kar animasyonu yüklenemedi, standart efekt kullanılıyor.")
+        function draw() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            for (let i = 0; i < snowflakes.length; i++) {
+                let p = snowflakes[i];
+                ctx.moveTo(p.x, p.y);
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2, true);
+            }
+            ctx.fill();
+            update();
+        }
+
+        function update() {
+            for (let i = 0; i < snowflakes.length; i++) {
+                let p = snowflakes[i];
+                p.y += Math.cos(p.d) + 1 + p.r / 2;
+                p.x += Math.sin(0) * 2;
+                if (p.y > height) {
+                    snowflakes[i] = { x: Math.random() * width, y: -10, r: p.r, d: p.d };
+                }
+            }
+        }
+
+        init();
+        setInterval(draw, 33);
+        window.addEventListener('resize', init);
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+
+# Efekti çağır
+add_snow_effect()
+
+# Uygulama içeriği
+st.title("❄️ Kar Yağışlı Streamlit")
+st.write("Arka planda modern ve akıcı bir kar efekti çalışıyor.")
+
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
