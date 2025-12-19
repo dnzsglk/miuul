@@ -46,7 +46,7 @@ def local_css(file_name):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # CSS dosyasını çağır (Dosya yolunun doğru olduğundan emin ol)
-local_css("style/style.css")
+local_css("style.css")
 
 # 2. Kar tanelerini (Emoji olarak) ekrana bas
 # Ne kadar çok div eklersen o kadar çok kar tanesi görünür
