@@ -79,18 +79,6 @@ st.sidebar.subheader("🎄 Yılbaşı Müzik Kutusu")
 import streamlit as st
 import base64
 
-def play_holiday_music():
-    # Bu çok kısa bir örnek melodi verisidir (Base64)
-    # Kendi MP3 dosyan varsa onun base64 halini buraya koyabilirsin
-    # İşte tarayıcıyı tetikleyen HTML kodu:
-    audio_html = """
-        <iframe src="https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3" allow="autoplay" style="display:none" id="iframeAudio">
-        </iframe>
-        <audio autoplay loop id="playAudio">
-            <source src="https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3" type="audio/mp3">
-        </audio>
-    """
-    st.markdown(audio_html, unsafe_allow_html=True)
 
 # Müziği sidebar'da bir kontrolle sunalım (En garantisi)
 def fallback_audio():
@@ -100,7 +88,6 @@ def fallback_audio():
     st.sidebar.audio(url)
     st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 
-play_holiday_music()
 fallback_audio()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
