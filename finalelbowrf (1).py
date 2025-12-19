@@ -41,22 +41,18 @@ import streamlit as st
 # TEMA STATE
 # ===============================
 import streamlit as st
-from streamlit_lottie import st_lottie
-import requests
 
-def load_lottieurl(url: str):
-    r = requests.get(url)
-    if r.status_code != 200:
-        return None
-    return r.json()
+st.title("🎄 Yılbaşı Uygulaması")
 
-# Kar yağışı animasyonu linki
-lottie_snow = load_lottieurl("https://assets8.lottiefiles.com/packages/lf20_96as4imv.json")
-
-# Animasyonu en üste sabitleyelim
-st_lottie(lottie_snow, speed=1, reverse=False, loop=True, quality="low", height=300, key="snow")
-
-st.header("🎅 Yılbaşı Uygulaması")
+# HTML ile kar efekti
+snow_html = """
+<script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
+<div style="display:flex;justify-content:center;">
+    <dotlottie-player src="https://lottie.host/4037617c-6744-4860-93a9-e08a467773f3/WunS0IqfP4.json" 
+    background="transparent" speed="1" style="width: 300px; height: 300px;" loop autoplay></dotlottie-player>
+</div>
+"""
+st.components.v1.html(snow_html, height=300)
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
