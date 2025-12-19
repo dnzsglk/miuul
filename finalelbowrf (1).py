@@ -71,7 +71,7 @@ st.markdown(
 def add_music():
     st.sidebar.markdown("### 🎄 Yılbaşı Radyosu")
     # Bu link Noel temalı telifsiz bir müziktir
-    music_url = "https://www.bensound.com/bensound-music/bensound-deckthehalls.mp3"
+    music_url = "https://www.chosic.com/wp-content/uploads/2021/11/Jingle-Bells-Country.mp3"
     
     # st.audio en güvenli yöntemdir, tarayıcı engellemez
     st.sidebar.audio(music_url, format="audio/mp3")
