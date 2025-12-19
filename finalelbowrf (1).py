@@ -85,7 +85,7 @@ def fallback_audio():
 
     st.sidebar.audio(url)
 
-    st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.") otomatik çalsın
+    st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 
 fallback_audio()
 # =============================================================================
