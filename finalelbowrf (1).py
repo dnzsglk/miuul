@@ -74,7 +74,6 @@ import streamlit as st
 
 # Kenar çubuğunda müzik çalar
 st.sidebar.markdown("---")
-st.sidebar.subheader("🎄 Yılbaşı Müzik Kutusu")
 
 import streamlit as st
 import base64
@@ -82,7 +81,6 @@ import base64
 
 # Müziği sidebar'da bir kontrolle sunalım (En garantisi)
 def fallback_audio():
-    st.sidebar.markdown("### 🎅 Yılbaşı Müziği")
     # Alternatif çalışan bir link
     url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
     st.sidebar.audio(url)
