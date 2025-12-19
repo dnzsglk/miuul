@@ -34,6 +34,7 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
 
 # CSSimport streamlit as st
+import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide")
@@ -41,37 +42,40 @@ st.set_page_config(layout="wide")
 def snow_effect():
     components.html(
         """
-        <canvas id="snow"></canvas>
-
         <style>
-        html, body {
+        /* iframe içinden çıkmak için */
+        body {
             margin: 0;
             padding: 0;
+            overflow: hidden;
         }
-        canvas {
+
+        #snow-canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
             pointer-events: none;
-            z-index: 999999;
+            z-index: 2147483647; /* maksimum */
         }
         </style>
 
+        <canvas id="snow-canvas"></canvas>
+
         <script>
-        const canvas = document.getElementById("snow");
+        const canvas = document.getElementById("snow-canvas");
         const ctx = canvas.getContext("2d");
 
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        window.addEventListener("resize", resize);
         resize();
+        window.addEventListener("resize", resize);
 
         const flakes = [];
-        const count = 150;
+        const count = 180;
 
         for (let i = 0; i < count; i++) {
             flakes.push({
@@ -85,13 +89,13 @@ def snow_effect():
         let angle = 0;
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
             ctx.beginPath();
 
             for (let i = 0; i < count; i++) {
                 const f = flakes[i];
                 ctx.moveTo(f.x, f.y);
-                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
             }
             ctx.fill();
 
@@ -99,7 +103,7 @@ def snow_effect():
             for (let i = 0; i < count; i++) {
                 const f = flakes[i];
                 f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
-                f.x += Math.sin(angle) * 0.5;
+                f.x += Math.sin(angle) * 0.6;
 
                 if (f.y > canvas.height) {
                     flakes[i] = {
@@ -112,20 +116,17 @@ def snow_effect():
             }
             requestAnimationFrame(draw);
         }
-
         draw();
         </script>
         """,
-        height=1,  # 🔥 ÇOK ÖNEMLİ
+        height=0,   # 🔥 SIFIR
     )
 
-
-# ❄️ MUTLAKA EN ÜSTTE
+# ❄️ DOSYANIN EN ÜSTÜNDE
 snow_effect()
 
-# İçerik
-st.title("❄️ Kar Efekti Test")
-st.write("Eğer bunu görüyorsan, kar yağmalı.")
+st.title("❄️ Kar Efekti Düzeltildi")
+st.write("Artık kar tüm sayfada, sıkışma yok.")
 
 
 # =============================================================================
