@@ -67,22 +67,19 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-def play_holiday_music():
-    # Güvenilir bir kaynaktan yılbaşı müziği linki
-    music_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Örnek linktir, kendi mp3 linkini koyabilirsin
+# 2. MÜZİK EKLEME (Garantili Yöntem)
+def add_music():
+    st.sidebar.markdown("### 🎄 Yılbaşı Radyosu")
+    # Bu link Noel temalı telifsiz bir müziktir
+    music_url = "https://www.bensound.com/bensound-music/bensound-deckthehalls.mp3"
     
-    st.markdown(
-        f"""
-        <audio autoplay loop>
-            <source src="{music_url}" type="audio/mp3">
-        </audio>
-        """,
-        unsafe_allow_html=True
-    )
+    # st.audio en güvenli yöntemdir, tarayıcı engellemez
+    st.sidebar.audio(music_url, format="audio/mp3")
+    st.sidebar.caption("Yukarıdaki 'Play' butonuna basarak müziği başlatabilirsiniz! 🎶")
 
-# Müziği başlat
-play_holiday_music()
+# Fonksiyonları Çağır
+apply_christmas_theme()
+add_music()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
