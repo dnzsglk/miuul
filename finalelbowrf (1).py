@@ -88,6 +88,93 @@ def fallback_audio():
     st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 
 fallback_audio()
+
+# --------------------------------------------------
+# YILBAŞI TEMASI: RENKLER VE STİLLER
+# --------------------------------------------------
+
+def apply_holiday_styles():
+    st.markdown("""
+        <style>
+        /* Ana Arka Plan */
+        .stApp {
+            background-color: #0a4d28; /* Koyu Çam Yeşili */
+            color: #f8f9fa;
+        }
+
+        /* Kenar Çubuğu (Sidebar) */
+        section[data-testid="stSidebar"] {
+            background-color: #1a3a2a !important;
+            border-right: 3px solid #d62828;
+        }
+
+        /* Başlıklar (H1, H2, H3) */
+        h1, h2, h3, h4 {
+            color: #d62828 !important; /* Yılbaşı Kırmızısı */
+            text-shadow: 2px 2px 4px #000000;
+            font-family: 'Trebuchet MS', sans-serif;
+        }
+
+        /* Butonlar */
+        div.stButton > button {
+            background-color: #d62828 !important;
+            color: white !important;
+            border-radius: 10px !important;
+            border: 2px solid #f4a261 !important; /* Altın Vurgu */
+            font-weight: bold !important;
+            padding: 0.5rem 2rem !important;
+        }
+        
+        div.stButton > button:hover {
+            background-color: #f4a261 !important; /* Üstüne gelince Altın Rengi */
+            color: #0a4d28 !important;
+        }
+
+        /* Tab (Sekme) Tasarımı */
+        button[data-baseweb="tab"] {
+            color: #f8f9fa !important;
+        }
+        button[aria-selected="true"] {
+            background-color: #d62828 !important;
+            color: white !important;
+            border-radius: 5px;
+        }
+
+        /* Metin Alanları ve Sayılar */
+        .stMarkdown, p, span {
+            color: #fdf0d5 !important; /* Sıcak Krem Beyazı */
+        }
+
+        /* Metrik Kartları */
+        [data-testid="stMetricValue"] {
+            color: #f4a261 !important; /* Altın Sarısı */
+        }
+
+        /* Input Kutuları */
+        div[data-baseweb="select"], div[data-baseweb="input"] {
+            background-color: #fdf0d5 !important;
+            border-radius: 5px;
+        }
+        
+        /* Kar Tanesi Animasyonu (Önceki kar kodunla birleştirildi) */
+        .snowflake {
+            color: #fff; font-size: 1.5em; position: fixed; top: -10%; z-index: 9999;
+            animation-name: snowflakes-fall, snowflakes-shake;
+            animation-duration: 10s, 3s; animation-iteration-count: infinite;
+        }
+        @keyframes snowflakes-fall { 0% {top:-10%} 100% {top:100%} }
+        @keyframes snowflakes-shake { 0% {transform:translateX(0px)} 50% {transform:translateX(80px)} 100% {transform:translateX(0px)} }
+        </style>
+        
+        <div class="snowflake" style="left:10%">❄</div>
+        <div class="snowflake" style="left:30%; animation-delay:2s">❅</div>
+        <div class="snowflake" style="left:50%; animation-delay:4s">❆</div>
+        <div class="snowflake" style="left:70%; animation-delay:1s">❄</div>
+        <div class="snowflake" style="left:90%; animation-delay:3s">❅</div>
+    """, unsafe_allow_html=True)
+
+# Temayı uygula
+apply_holiday_styles()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
