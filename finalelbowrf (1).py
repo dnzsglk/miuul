@@ -25,6 +25,11 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 # Ayarlar
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
+if st.session_state["newyear_theme"]:
+    newyear_css()
+    snow_effect()
+else:
+    normal_css()
 
 # CSS
 
@@ -150,50 +155,66 @@ import streamlit.components.v1 as components
 def snow_effect():
     components.html(
         """
+        <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 999999;
+        }
+        </style>
+
         <canvas id="snow"></canvas>
 
         <script>
         const canvas = document.getElementById("snow");
         const ctx = canvas.getContext("2d");
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener("resize", resize);
+        resize();
 
-        let snowflakes = [];
-        const maxFlakes = 150;
+        let flakes = [];
+        const count = 180;
 
-        for (let i = 0; i < maxFlakes; i++) {
-            snowflakes.push({
+        for (let i = 0; i < count; i++) {
+            flakes.push({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
                 r: Math.random() * 4 + 1,
-                d: Math.random() * maxFlakes
+                d: Math.random() * count
             });
         }
 
-        function drawSnowflakes() {
+        let angle = 0;
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
             ctx.beginPath();
-            for (let i = 0; i < maxFlakes; i++) {
-                let f = snowflakes[i];
+
+            for (let i = 0; i < count; i++) {
+                const f = flakes[i];
                 ctx.moveTo(f.x, f.y);
                 ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
             }
             ctx.fill();
-            moveSnowflakes();
-        }
 
-        let angle = 0;
-        function moveSnowflakes() {
             angle += 0.01;
-            for (let i = 0; i < maxFlakes; i++) {
-                let f = snowflakes[i];
+            for (let i = 0; i < count; i++) {
+                const f = flakes[i];
                 f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
                 f.x += Math.sin(angle) * 0.5;
 
                 if (f.y > canvas.height) {
-                    snowflakes[i] = {
+                    flakes[i] = {
                         x: Math.random() * canvas.width,
                         y: 0,
                         r: f.r,
@@ -201,25 +222,13 @@ def snow_effect():
                     };
                 }
             }
+            requestAnimationFrame(draw);
         }
-
-        setInterval(drawSnowflakes, 30);
+        draw();
         </script>
-
-        <style>
-        #snow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            z-index: 9999;
-        }
-        </style>
         """,
-        height=0,
-        width=0
+        height=400,   # 🔴 KRİTİK: 0 OLMAYACAK
     )
-
 
 # ===============================
 # AKTİF TEMA
