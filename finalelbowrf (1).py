@@ -25,11 +25,6 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 # Ayarlar
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
-if st.session_state["newyear_theme"]:
-    newyear_css()
-    snow_effect()
-else:
-    normal_css()
 
 # CSS
 
