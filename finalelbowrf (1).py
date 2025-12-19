@@ -138,73 +138,80 @@ def normal_css():
 # ===============================
 # KAR EFEKTİ (SNOW)
 # ===============================
+import streamlit.components.v1 as components
+
 def snow_effect():
-    st.markdown("""
-    <canvas id="snow"></canvas>
-    <script>
-    const canvas = document.getElementById("snow");
-    const ctx = canvas.getContext("2d");
+    components.html(
+        """
+        <canvas id="snow"></canvas>
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+        <script>
+        const canvas = document.getElementById("snow");
+        const ctx = canvas.getContext("2d");
 
-    let snowflakes = [];
-    const maxFlakes = 120;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-    for (let i = 0; i < maxFlakes; i++) {
-        snowflakes.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            r: Math.random() * 4 + 1,
-            d: Math.random() * maxFlakes
-        });
-    }
+        let snowflakes = [];
+        const maxFlakes = 150;
 
-    function drawSnowflakes() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
-        ctx.beginPath();
         for (let i = 0; i < maxFlakes; i++) {
-            let f = snowflakes[i];
-            ctx.moveTo(f.x, f.y);
-            ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+            snowflakes.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 4 + 1,
+                d: Math.random() * maxFlakes
+            });
         }
-        ctx.fill();
-        moveSnowflakes();
-    }
 
-    let angle = 0;
-    function moveSnowflakes() {
-        angle += 0.01;
-        for (let i = 0; i < maxFlakes; i++) {
-            let f = snowflakes[i];
-            f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
-            f.x += Math.sin(angle) * 0.5;
+        function drawSnowflakes() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.beginPath();
+            for (let i = 0; i < maxFlakes; i++) {
+                let f = snowflakes[i];
+                ctx.moveTo(f.x, f.y);
+                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+            }
+            ctx.fill();
+            moveSnowflakes();
+        }
 
-            if (f.y > canvas.height) {
-                snowflakes[i] = {
-                    x: Math.random() * canvas.width,
-                    y: 0,
-                    r: f.r,
-                    d: f.d
-                };
+        let angle = 0;
+        function moveSnowflakes() {
+            angle += 0.01;
+            for (let i = 0; i < maxFlakes; i++) {
+                let f = snowflakes[i];
+                f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
+                f.x += Math.sin(angle) * 0.5;
+
+                if (f.y > canvas.height) {
+                    snowflakes[i] = {
+                        x: Math.random() * canvas.width,
+                        y: 0,
+                        r: f.r,
+                        d: f.d
+                    };
+                }
             }
         }
-    }
 
-    setInterval(drawSnowflakes, 33);
-    </script>
+        setInterval(drawSnowflakes, 30);
+        </script>
 
-    <style>
-    #snow {
-        position: fixed;
-        top: 0;
-        left: 0;
-        pointer-events: none;
-        z-index: 9999;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        <style>
+        #snow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        </style>
+        """,
+        height=0,
+        width=0
+    )
 
 
 # ===============================
