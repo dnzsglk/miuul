@@ -6,6 +6,13 @@ import seaborn as sns
 import joblib
 import warnings
 from scipy.stats import chi2_contingency
+import streamlit as st
+import streamlit.components.v1 as components
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Modelleme
 from sklearn.linear_model import LogisticRegression
