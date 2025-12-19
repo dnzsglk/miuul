@@ -54,26 +54,40 @@ with st.sidebar:
 def newyear_css():
     st.markdown("""
     <style>
-    .main { background-color: #0b1d13; color: #fefae0; }
-
-    h1, h2, h3 {
-        color: #fca311;
-        font-weight: 800;
+    html, body, [data-testid="stApp"] {
+        background-color: #0b1d13 !important;
+        color: #fefae0 !important;
     }
 
+    [data-testid="stAppViewContainer"] {
+        background-color: #0b1d13 !important;
+    }
+
+    [data-testid="stMain"] {
+        background-color: #0b1d13 !important;
+    }
+
+    /* Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #132e1f;
+        background-color: #132e1f !important;
         border-right: 2px solid #c1121f;
     }
 
+    /* Başlıklar */
+    h1, h2, h3 {
+        color: #fca311 !important;
+        font-weight: 800;
+    }
+
+    /* Metric */
     div[data-testid="stMetric"] {
         background-color: #132e1f;
         border: 1px solid #fca311;
         border-radius: 12px;
         padding: 12px;
-        box-shadow: 0 0 12px rgba(252,163,17,0.2);
     }
 
+    /* Button */
     div.stButton > button {
         background: linear-gradient(135deg, #c1121f, #fca311);
         color: #0b1d13;
@@ -82,24 +96,13 @@ def newyear_css():
         border: none;
     }
 
-    div.stButton > button:hover {
-        background: linear-gradient(135deg, #fca311, #c1121f);
-        color: black;
-        transform: scale(1.03);
-    }
-
+    /* Tabs */
     button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: #c1121f;
-        color: white;
-        font-weight: bold;
-    }
-
-    div[data-testid="stProgress"] > div > div {
-        background: linear-gradient(90deg, #2ec4b6, #fca311);
+        background-color: #c1121f !important;
+        color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
-
 
 # ===============================
 # NORMAL (DEFAULT) TEMA CSS
@@ -107,29 +110,33 @@ def newyear_css():
 def normal_css():
     st.markdown("""
     <style>
-    .main { background-color: #020617; color: #e5e7eb; }
+    html, body, [data-testid="stApp"] {
+        background-color: #020617 !important;
+        color: #e5e7eb !important;
+    }
 
-    h1, h2, h3 {
-        color: #38bdf8;
-        font-weight: 700;
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background-color: #020617 !important;
     }
 
     section[data-testid="stSidebar"] {
-        background-color: #020617;
+        background-color: #020617 !important;
+    }
+
+    h1, h2, h3 {
+        color: #38bdf8 !important;
     }
 
     div[data-testid="stMetric"] {
         background-color: #020617;
         border: 1px solid #38bdf8;
-        border-radius: 10px;
-        padding: 10px;
     }
 
     div.stButton > button {
         background-color: #38bdf8;
         color: black;
         font-weight: 700;
-        border-radius: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
