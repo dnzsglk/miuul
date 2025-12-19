@@ -78,7 +78,6 @@ def add_music():
     st.sidebar.caption("Yukarıdaki 'Play' butonuna basarak müziği başlatabilirsiniz! 🎶")
 
 # Fonksiyonları Çağır
-apply_christmas_theme()
 add_music()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
