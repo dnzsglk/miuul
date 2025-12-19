@@ -80,7 +80,6 @@ import base64
 
 
 # Müziği sidebar'da bir kontrolle sunalım (En garantisi)
-import streamlit as st
 
 def autoplay_audio(url):
     # Görünmez bir ses çalar ve otomatik oynatma komutu
@@ -111,7 +110,6 @@ autoplay_audio(music_url)
 st.title("🎄 Otomatik Müzikli Yılbaşı Sayfası")
 st.write("Eğer ses gelmiyorsa, tarayıcı engeli nedeniyle sayfada herhangi bir yere bir kez tıklamanız gerekebilir.")
 
-fallback_audio()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
