@@ -93,7 +93,6 @@ def fallback_audio():
     st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 # Fonksiyonları Çağır
 play_holiday_music()
-fallback_audio()
 
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
