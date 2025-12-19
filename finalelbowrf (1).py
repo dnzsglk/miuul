@@ -41,7 +41,7 @@ if "newyear_theme" not in st.session_state:
 # SIDEBAR TOGGLE
 # ===============================
 with st.sidebar:
-    st.markdown("### 🎨 Tema Ayarları")
+    st.markdown("### 🎨 Tema")
     st.session_state["newyear_theme"] = st.toggle(
         "🎄 Yılbaşı Teması",
         value=st.session_state["newyear_theme"]
@@ -51,110 +51,44 @@ with st.sidebar:
 # ===============================
 # YILBAŞI TEMA CSS
 # ===============================
+# ---------- YILBAŞI TEMA ----------
 def newyear_css():
     st.markdown("""
     <style>
-    html, body, [data-testid="stApp"] {
+    html, body, [data-testid="stApp"],
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
         background-color: #0b1d13 !important;
         color: #fefae0 !important;
     }
-
-    [data-testid="stAppViewContainer"] {
-        background-color: #0b1d13 !important;
-    }
-
-    [data-testid="stMain"] {
-        background-color: #0b1d13 !important;
-    }
-
-    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #132e1f !important;
-        border-right: 2px solid #c1121f;
-    }
-
-    /* Başlıklar */
-    h1, h2, h3 {
-        color: #fca311 !important;
-        font-weight: 800;
-    }
-
-    /* Metric */
-    div[data-testid="stMetric"] {
-        background-color: #132e1f;
-        border: 1px solid #fca311;
-        border-radius: 12px;
-        padding: 12px;
-    }
-
-    /* Button */
-    div.stButton > button {
-        background: linear-gradient(135deg, #c1121f, #fca311);
-        color: #0b1d13;
-        font-weight: 800;
-        border-radius: 10px;
-        border: none;
-    }
-
-    /* Tabs */
-    button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: #c1121f !important;
-        color: white !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# ===============================
-# NORMAL (DEFAULT) TEMA CSS
-# ===============================
+
 def normal_css():
     st.markdown("""
     <style>
-    html, body, [data-testid="stApp"] {
-        background-color: #020617 !important;
-        color: #e5e7eb !important;
-    }
-
+    html, body, [data-testid="stApp"],
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"] {
         background-color: #020617 !important;
+        color: #e5e7eb !important;
     }
-
     section[data-testid="stSidebar"] {
         background-color: #020617 !important;
-    }
-
-    h1, h2, h3 {
-        color: #38bdf8 !important;
-    }
-
-    div[data-testid="stMetric"] {
-        background-color: #020617;
-        border: 1px solid #38bdf8;
-    }
-
-    div.stButton > button {
-        background-color: #38bdf8;
-        color: black;
-        font-weight: 700;
     }
     </style>
     """, unsafe_allow_html=True)
 
 
-# ===============================
-# KAR EFEKTİ (SNOW)
-# ===============================
-import streamlit.components.v1 as components
-
+# ---------- KAR EFEKTİ ----------
 def snow_effect():
     components.html(
         """
         <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
         canvas {
             position: fixed;
             top: 0;
@@ -178,7 +112,7 @@ def snow_effect():
         resize();
 
         let flakes = [];
-        const count = 180;
+        const count = 150;
 
         for (let i = 0; i < count; i++) {
             flakes.push({
@@ -192,7 +126,7 @@ def snow_effect():
         let angle = 0;
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
             ctx.beginPath();
 
             for (let i = 0; i < count; i++) {
@@ -222,17 +156,21 @@ def snow_effect():
         draw();
         </script>
         """,
-        height=400,   # 🔴 KRİTİK: 0 OLMAYACAK
+        height=1,
     )
 
 # ===============================
 # AKTİF TEMA
 # ===============================
+if "newyear_theme" not in st.session_state:
+    st.session_state["newyear_theme"] = True
+
 if st.session_state["newyear_theme"]:
     newyear_css()
     snow_effect()
 else:
     normal_css()
+
 
 
 # =============================================================================
