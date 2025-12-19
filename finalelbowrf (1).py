@@ -33,100 +33,102 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
 
-# CSSimport streamlit as st
-import streamlit as st
-import streamlit.components.v1 as components
+# CSSimport streamlit as stimport streamlit as st
 
-st.set_page_config(layout="wide")
+# --------------------------------------------------
+# SAYFA AYARLARI
+# --------------------------------------------------
+st.set_page_config(
+    page_title="Yılbaşı Temalı Dashboard",
+    layout="wide"
+)
 
-def snow_effect():
-    components.html(
-        """
-        <style>
-        /* iframe içinden çıkmak için */
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
+if "newyear_theme" not in st.session_state:
+    st.session_state.newyear_theme = True
 
-        #snow-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 2147483647; /* maksimum */
-        }
-        </style>
+# --------------------------------------------------
+# CSS TEMALAR
+# --------------------------------------------------
+def newyear_css():
+    st.markdown("""
+    <style>
+    /* Ana arka plan */
+    [data-testid="stAppViewContainer"] {
+        background: linear-gradient(180deg, #0b1d13, #04110a);
+        color: #fefae0;
+    }
 
-        <canvas id="snow-canvas"></canvas>
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #132e1f;
+        color: #fefae0;
+    }
 
-        <script>
-        const canvas = document.getElementById("snow-canvas");
-        const ctx = canvas.getContext("2d");
+    /* Başlıklar */
+    h1, h2, h3 {
+        color: #e9c46a;
+    }
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        resize();
-        window.addEventListener("resize", resize);
+    /* Kart hissi */
+    .stMetric, .stDataFrame {
+        background-color: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        padding: 10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        const flakes = [];
-        const count = 180;
 
-        for (let i = 0; i < count; i++) {
-            flakes.push({
-                x: Math.random() * canvas.width,
-                y: Math.random() * canvas.height,
-                r: Math.random() * 4 + 1,
-                d: Math.random() * count
-            });
-        }
+def normal_css():
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background-color: #020617;
+        color: #e5e7eb;
+    }
 
-        let angle = 0;
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.beginPath();
+    section[data-testid="stSidebar"] {
+        background-color: #020617;
+        color: #e5e7eb;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-            for (let i = 0; i < count; i++) {
-                const f = flakes[i];
-                ctx.moveTo(f.x, f.y);
-                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-            }
-            ctx.fill();
-
-            angle += 0.01;
-            for (let i = 0; i < count; i++) {
-                const f = flakes[i];
-                f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
-                f.x += Math.sin(angle) * 0.6;
-
-                if (f.y > canvas.height) {
-                    flakes[i] = {
-                        x: Math.random() * canvas.width,
-                        y: -10,
-                        r: f.r,
-                        d: f.d
-                    };
-                }
-            }
-            requestAnimationFrame(draw);
-        }
-        draw();
-        </script>
-        """,
-        height=0,   # 🔥 SIFIR
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
+with st.sidebar:
+    st.markdown("## 🎨 Tema Ayarları")
+    st.session_state.newyear_theme = st.toggle(
+        "🎄 Yılbaşı Teması",
+        value=st.session_state.newyear_theme
     )
 
-# ❄️ DOSYANIN EN ÜSTÜNDE
-snow_effect()
+# --------------------------------------------------
+# TEMA UYGULAMA
+# --------------------------------------------------
+if st.session_state.newyear_theme:
+    newyear_css()
+    st.snow()   # ❄️ STREAMLIT'İN STABİL KAR EFEKTİ
+else:
+    normal_css()
 
-st.title("❄️ Kar Efekti Düzeltildi")
-st.write("Artık kar tüm sayfada, sıkışma yok.")
+# --------------------------------------------------
+# UYGULAMA İÇERİĞİ
+# --------------------------------------------------
+st.title("🎄 Yılbaşı Temalı Dashboard")
+st.write("Bu sayfa **stabil**, **layout-safe** ve **production uyumlu** bir yılbaşı teması kullanır.")
+
+col1, col2, col3 = st.columns(3)
+col1.metric("🎁 Hediye", "128")
+col2.metric("❄️ Kar Tanesi", "∞")
+col3.metric("🎆 Gün", "31 Aralık")
+
+st.markdown("---")
+st.write("İçeriğini buradan itibaren güvenle geliştirebilirsin.")
 
 
 # =============================================================================
