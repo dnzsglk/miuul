@@ -27,13 +27,195 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
 
 # CSS
-st.markdown("""
-<style>
-    .main { background-color: #f8f9fa; }
-    h1 { color: #1e3a8a; }
-    div[data-testid="stMetric"] { background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 5px; padding: 10px; }
-</style>
-""", unsafe_allow_html=True)
+
+import streamlit as st
+
+# ===============================
+# TEMA STATE
+# ===============================
+if "newyear_theme" not in st.session_state:
+    st.session_state["newyear_theme"] = True
+
+
+# ===============================
+# SIDEBAR TOGGLE
+# ===============================
+with st.sidebar:
+    st.markdown("### 🎨 Tema Ayarları")
+    st.session_state["newyear_theme"] = st.toggle(
+        "🎄 Yılbaşı Teması",
+        value=st.session_state["newyear_theme"]
+    )
+
+
+# ===============================
+# YILBAŞI TEMA CSS
+# ===============================
+def newyear_css():
+    st.markdown("""
+    <style>
+    .main { background-color: #0b1d13; color: #fefae0; }
+
+    h1, h2, h3 {
+        color: #fca311;
+        font-weight: 800;
+    }
+
+    section[data-testid="stSidebar"] {
+        background-color: #132e1f;
+        border-right: 2px solid #c1121f;
+    }
+
+    div[data-testid="stMetric"] {
+        background-color: #132e1f;
+        border: 1px solid #fca311;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 0 12px rgba(252,163,17,0.2);
+    }
+
+    div.stButton > button {
+        background: linear-gradient(135deg, #c1121f, #fca311);
+        color: #0b1d13;
+        font-weight: 800;
+        border-radius: 10px;
+        border: none;
+    }
+
+    div.stButton > button:hover {
+        background: linear-gradient(135deg, #fca311, #c1121f);
+        color: black;
+        transform: scale(1.03);
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #c1121f;
+        color: white;
+        font-weight: bold;
+    }
+
+    div[data-testid="stProgress"] > div > div {
+        background: linear-gradient(90deg, #2ec4b6, #fca311);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# ===============================
+# NORMAL (DEFAULT) TEMA CSS
+# ===============================
+def normal_css():
+    st.markdown("""
+    <style>
+    .main { background-color: #020617; color: #e5e7eb; }
+
+    h1, h2, h3 {
+        color: #38bdf8;
+        font-weight: 700;
+    }
+
+    section[data-testid="stSidebar"] {
+        background-color: #020617;
+    }
+
+    div[data-testid="stMetric"] {
+        background-color: #020617;
+        border: 1px solid #38bdf8;
+        border-radius: 10px;
+        padding: 10px;
+    }
+
+    div.stButton > button {
+        background-color: #38bdf8;
+        color: black;
+        font-weight: 700;
+        border-radius: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# ===============================
+# KAR EFEKTİ (SNOW)
+# ===============================
+def snow_effect():
+    st.markdown("""
+    <canvas id="snow"></canvas>
+    <script>
+    const canvas = document.getElementById("snow");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let snowflakes = [];
+    const maxFlakes = 120;
+
+    for (let i = 0; i < maxFlakes; i++) {
+        snowflakes.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            r: Math.random() * 4 + 1,
+            d: Math.random() * maxFlakes
+        });
+    }
+
+    function drawSnowflakes() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath();
+        for (let i = 0; i < maxFlakes; i++) {
+            let f = snowflakes[i];
+            ctx.moveTo(f.x, f.y);
+            ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+        }
+        ctx.fill();
+        moveSnowflakes();
+    }
+
+    let angle = 0;
+    function moveSnowflakes() {
+        angle += 0.01;
+        for (let i = 0; i < maxFlakes; i++) {
+            let f = snowflakes[i];
+            f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
+            f.x += Math.sin(angle) * 0.5;
+
+            if (f.y > canvas.height) {
+                snowflakes[i] = {
+                    x: Math.random() * canvas.width,
+                    y: 0,
+                    r: f.r,
+                    d: f.d
+                };
+            }
+        }
+    }
+
+    setInterval(drawSnowflakes, 33);
+    </script>
+
+    <style>
+    #snow {
+        position: fixed;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        z-index: 9999;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# ===============================
+# AKTİF TEMA
+# ===============================
+if st.session_state["newyear_theme"]:
+    newyear_css()
+    snow_effect()
+else:
+    normal_css()
+
 
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
