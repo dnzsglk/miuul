@@ -34,98 +34,91 @@ warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
 
 # CSS
-
 import streamlit as st
 
 def add_snow_effect():
     st.markdown(
         """
         <style>
-        #particles-js {
+        #snow-canvas {
             position: fixed;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
-            top: 0;
-            left: 0;
-            z-index: -1; /* İçeriğin arkasında kalması için */
-            background-color: #0b1523; /* Koyu kış gecesi rengi */
-        }
-        
-        .snow {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
             pointer-events: none;
-            z-index: -1;
+            z-index: 9999;
         }
         </style>
-        
-        <div class="snow">
-            <canvas id="snow-canvas"></canvas>
-        </div>
+
+        <canvas id="snow-canvas"></canvas>
 
         <script>
-        // Basit bir JS kar efekti motoru (SCSS yerine en kararlı çözüm)
-        const canvas = document.getElementById('snow-canvas');
-        const ctx = canvas.getContext('2d');
-        let width, height, snowflakes;
+        const canvas = document.getElementById("snow-canvas");
+        const ctx = canvas.getContext("2d");
 
-        function init() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-            snowflakes = [];
-            for (let i = 0; i < 150; i++) {
-                snowflakes.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    r: Math.random() * 4 + 1,
-                    d: Math.random() * 1
-                });
-            }
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener("resize", resize);
+
+        let flakes = [];
+        const count = 160;
+
+        for (let i = 0; i < count; i++) {
+            flakes.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                r: Math.random() * 4 + 1,
+                d: Math.random() * count
+            });
         }
 
+        let angle = 0;
         function draw() {
-            ctx.clearRect(0, 0, width, height);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
             ctx.beginPath();
-            for (let i = 0; i < snowflakes.length; i++) {
-                let p = snowflakes[i];
-                ctx.moveTo(p.x, p.y);
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2, true);
+
+            for (let i = 0; i < count; i++) {
+                const f = flakes[i];
+                ctx.moveTo(f.x, f.y);
+                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
             }
             ctx.fill();
-            update();
-        }
 
-        function update() {
-            for (let i = 0; i < snowflakes.length; i++) {
-                let p = snowflakes[i];
-                p.y += Math.cos(p.d) + 1 + p.r / 2;
-                p.x += Math.sin(0) * 2;
-                if (p.y > height) {
-                    snowflakes[i] = { x: Math.random() * width, y: -10, r: p.r, d: p.d };
+            angle += 0.01;
+            for (let i = 0; i < count; i++) {
+                const f = flakes[i];
+                f.y += Math.cos(angle + f.d) + 1 + f.r / 2;
+                f.x += Math.sin(angle) * 0.5;
+
+                if (f.y > canvas.height) {
+                    flakes[i] = {
+                        x: Math.random() * canvas.width,
+                        y: -10,
+                        r: f.r,
+                        d: f.d
+                    };
                 }
             }
+            requestAnimationFrame(draw);
         }
-
-        init();
-        setInterval(draw, 33);
-        window.addEventListener('resize', init);
+        draw();
         </script>
         """,
         unsafe_allow_html=True
     )
 
-# Efekti çağır
+
+# ❄️ SAYFANIN EN ÜSTÜNDE ÇAĞIR
 add_snow_effect()
 
-# Uygulama içeriği
+# İçerik
 st.title("❄️ Kar Yağışlı Streamlit")
-st.write("Arka planda modern ve akıcı bir kar efekti çalışıyor.")
+st.write("Kar efekti artık düzgün çalışıyor ve layout bozulmuyor.")
 
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
