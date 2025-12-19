@@ -76,16 +76,32 @@ import streamlit as st
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎄 Yılbaşı Müzik Kutusu")
 
-# Buradaki link gerçek bir "Jingle Bells" versiyonudur
-music_url = "https://www.chosic.com/wp-content/uploads/2021/11/Jingle-Bells-Country.mp3"
+import streamlit as st
+import base64
 
-# Müziği ekle
-st.sidebar.audio(music_url, format="audio/mp3")
+def play_holiday_music():
+    # Bu çok kısa bir örnek melodi verisidir (Base64)
+    # Kendi MP3 dosyan varsa onun base64 halini buraya koyabilirsin
+    # İşte tarayıcıyı tetikleyen HTML kodu:
+    audio_html = """
+        <iframe src="https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3" allow="autoplay" style="display:none" id="iframeAudio">
+        </iframe>
+        <audio autoplay loop id="playAudio">
+            <source src="https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3" type="audio/mp3">
+        </audio>
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
 
-# Kullanıcıya bilgi ver
-st.sidebar.caption("🎶 Şu an çalınan: Jingle Bells (Country Version)")
-st.sidebar.info("Not: Tarayıcı güvenliği nedeniyle müziği başlatmak için sol taraftaki 'Play' (Oynat) butonuna basmalısınız.")
+# Müziği sidebar'da bir kontrolle sunalım (En garantisi)
+def fallback_audio():
+    st.sidebar.markdown("### 🎅 Yılbaşı Müziği")
+    # Alternatif çalışan bir link
+    url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+    st.sidebar.audio(url)
+    st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 
+play_holiday_music()
+fallback_audio()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
