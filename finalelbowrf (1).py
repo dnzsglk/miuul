@@ -92,89 +92,94 @@ fallback_audio()
 # --------------------------------------------------
 # YILBAŞI TEMASI: RENKLER VE STİLLER
 # --------------------------------------------------
+# --------------------------------------------------
+# YENİ NESİL YILBAŞI TEMASI (MODERN & ÇERÇEVELİ)
+# --------------------------------------------------
 
-def apply_holiday_styles():
+def apply_modern_christmas_theme():
     st.markdown("""
         <style>
-        /* Ana Arka Plan */
+        /* Ana Arka Plan - Koyu Lacivert/Siyah Kış Gecesi */
         .stApp {
-            background-color: #0a4d28; /* Koyu Çam Yeşili */
-            color: #f8f9fa;
+            background: linear-gradient(180deg, #050a14 0%, #001219 100%);
+            color: #ffffff;
         }
 
-        /* Kenar Çubuğu (Sidebar) */
+        /* Metrik Kartları (Müşteri Sayısı vb.) İçin Çerçeve */
+        [data-testid="stMetric"] {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 2px solid #f4a261; /* Altın sarısı çerçeve */
+            border-radius: 15px;
+            padding: 15px 10px;
+            box-shadow: 0px 4px 15px rgba(244, 162, 97, 0.2);
+            text-align: center;
+        }
+        
+        /* Metrik Değerleri */
+        [data-testid="stMetricValue"] {
+            color: #ffffff !important;
+            font-weight: bold;
+        }
+        
+        /* Metrik Etiketleri */
+        [data-testid="stMetricLabel"] {
+            color: #d62828 !important; /* Kırmızı başlıklar */
+            font-size: 1.1rem !important;
+            font-weight: 600;
+        }
+
+        /* Sidebar Tasarımı */
         section[data-testid="stSidebar"] {
-            background-color: #1a3a2a !important;
-            border-right: 3px solid #d62828;
+            background-color: #000814 !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* Başlıklar (H1, H2, H3) */
-        h1, h2, h3, h4 {
-            color: #d62828 !important; /* Yılbaşı Kırmızısı */
-            text-shadow: 2px 2px 4px #000000;
-            font-family: 'Trebuchet MS', sans-serif;
-        }
-
-        /* Butonlar */
+        /* Butonlar - Modern Kırmızı */
         div.stButton > button {
             background-color: #d62828 !important;
             color: white !important;
-            border-radius: 10px !important;
-            border: 2px solid #f4a261 !important; /* Altın Vurgu */
-            font-weight: bold !important;
-            padding: 0.5rem 2rem !important;
+            border-radius: 25px !important;
+            border: none !important;
+            transition: 0.3s;
+            width: 100%;
+            font-weight: bold;
         }
         
         div.stButton > button:hover {
-            background-color: #f4a261 !important; /* Üstüne gelince Altın Rengi */
-            color: #0a4d28 !important;
+            background-color: #f4a261 !important; /* Hover'da altın rengi */
+            transform: scale(1.02);
         }
 
-        /* Tab (Sekme) Tasarımı */
+        /* Sekme (Tab) Tasarımı */
         button[data-baseweb="tab"] {
+            font-size: 18px;
             color: #f8f9fa !important;
         }
         button[aria-selected="true"] {
-            background-color: #d62828 !important;
-            color: white !important;
-            border-radius: 5px;
+            border-bottom: 3px solid #d62828 !important;
+            font-weight: bold;
         }
 
-        /* Metin Alanları ve Sayılar */
-        .stMarkdown, p, span {
-            color: #fdf0d5 !important; /* Sıcak Krem Beyazı */
-        }
-
-        /* Metrik Kartları */
-        [data-testid="stMetricValue"] {
-            color: #f4a261 !important; /* Altın Sarısı */
-        }
-
-        /* Input Kutuları */
-        div[data-baseweb="select"], div[data-baseweb="input"] {
-            background-color: #fdf0d5 !important;
-            border-radius: 5px;
-        }
-        
-        /* Kar Tanesi Animasyonu (Önceki kar kodunla birleştirildi) */
+        /* Kar Taneleri */
         .snowflake {
-            color: #fff; font-size: 1.5em; position: fixed; top: -10%; z-index: 9999;
+            color: #fff; font-size: 1.2em; position: fixed; top: -10%; z-index: 9999;
             animation-name: snowflakes-fall, snowflakes-shake;
             animation-duration: 10s, 3s; animation-iteration-count: infinite;
+            pointer-events: none;
         }
         @keyframes snowflakes-fall { 0% {top:-10%} 100% {top:100%} }
         @keyframes snowflakes-shake { 0% {transform:translateX(0px)} 50% {transform:translateX(80px)} 100% {transform:translateX(0px)} }
         </style>
-        
+
         <div class="snowflake" style="left:10%">❄</div>
-        <div class="snowflake" style="left:30%; animation-delay:2s">❅</div>
-        <div class="snowflake" style="left:50%; animation-delay:4s">❆</div>
-        <div class="snowflake" style="left:70%; animation-delay:1s">❄</div>
-        <div class="snowflake" style="left:90%; animation-delay:3s">❅</div>
+        <div class="snowflake" style="left:25%; animation-delay:2s">❅</div>
+        <div class="snowflake" style="left:45%; animation-delay:4s">❆</div>
+        <div class="snowflake" style="left:65%; animation-delay:1s">❄</div>
+        <div class="snowflake" style="left:85%; animation-delay:3s">❅</div>
     """, unsafe_allow_html=True)
 
 # Temayı uygula
-apply_holiday_styles()
+apply_modern_christmas_theme()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
