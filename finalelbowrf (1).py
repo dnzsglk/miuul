@@ -68,9 +68,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # 2. MÜZİK EKLEME (Garantili Yöntem)
-import streamlit as st
-import base64
-import streamlit as st
 
 # Kenar çubuğunda müzik çalar
 st.sidebar.markdown("---")
@@ -80,36 +77,17 @@ import base64
 
 
 # Müziği sidebar'da bir kontrolle sunalım (En garantisi)
+def fallback_audio():
 
-def autoplay_audio(url):
-    # Görünmez bir ses çalar ve otomatik oynatma komutu
-    st.markdown(
-        f"""
-        <div style="display:none">
-            <iframe src="{url}" allow="autoplay" id="audio"></iframe>
-            <audio autoplay loop>
-                <source src="{url}" type="audio/mp3">
-            </audio>
-        </div>
-        
-        <script>
-            // Tarayıcı kısıtlamasını aşmak için ufak bir tetikleyici
-            var audio = document.getElementById("audio");
-            audio.volume = 0.5;
-        </script>
-        """,
-        unsafe_allow_html=True
-    )
+    # Alternatif çalışan bir link
 
-# Yılbaşı müziği linki
-music_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
 
-# Fonksiyonu çağır
-autoplay_audio(music_url)
+    st.sidebar.audio(url)
 
-st.title("🎄 Otomatik Müzikli Yılbaşı Sayfası")
-st.write("Eğer ses gelmiyorsa, tarayıcı engeli nedeniyle sayfada herhangi bir yere bir kez tıklamanız gerekebilir.")
+    st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.") otomatik çalsın
 
+fallback_audio()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
