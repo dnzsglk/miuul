@@ -33,39 +33,45 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="🛍️", layout="wide")
 
-# CSS
-import streamlit as st
+# CSSimport streamlit as st
+import streamlit.components.v1 as components
 
-def add_snow_effect():
-    st.markdown(
+st.set_page_config(layout="wide")
+
+def snow_effect():
+    components.html(
         """
+        <canvas id="snow"></canvas>
+
         <style>
-        #snow-canvas {
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+        canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100vw;
             height: 100vh;
             pointer-events: none;
-            z-index: 9999;
+            z-index: 999999;
         }
         </style>
 
-        <canvas id="snow-canvas"></canvas>
-
         <script>
-        const canvas = document.getElementById("snow-canvas");
+        const canvas = document.getElementById("snow");
         const ctx = canvas.getContext("2d");
 
         function resize() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
         }
-        resize();
         window.addEventListener("resize", resize);
+        resize();
 
-        let flakes = [];
-        const count = 160;
+        const flakes = [];
+        const count = 150;
 
         for (let i = 0; i < count; i++) {
             flakes.push({
@@ -106,19 +112,21 @@ def add_snow_effect():
             }
             requestAnimationFrame(draw);
         }
+
         draw();
         </script>
         """,
-        unsafe_allow_html=True
+        height=1,  # 🔥 ÇOK ÖNEMLİ
     )
 
 
-# ❄️ SAYFANIN EN ÜSTÜNDE ÇAĞIR
-add_snow_effect()
+# ❄️ MUTLAKA EN ÜSTTE
+snow_effect()
 
 # İçerik
-st.title("❄️ Kar Yağışlı Streamlit")
-st.write("Kar efekti artık düzgün çalışıyor ve layout bozulmuyor.")
+st.title("❄️ Kar Efekti Test")
+st.write("Eğer bunu görüyorsan, kar yağmalı.")
+
 
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
