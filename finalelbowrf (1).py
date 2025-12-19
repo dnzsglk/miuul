@@ -68,6 +68,21 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+def play_holiday_music():
+    # Güvenilir bir kaynaktan yılbaşı müziği linki
+    music_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" # Örnek linktir, kendi mp3 linkini koyabilirsin
+    
+    st.markdown(
+        f"""
+        <audio autoplay loop>
+            <source src="{music_url}" type="audio/mp3">
+        </audio>
+        """,
+        unsafe_allow_html=True
+    )
+
+# Müziği başlat
+play_holiday_music()
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
