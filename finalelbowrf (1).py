@@ -41,18 +41,29 @@ import streamlit as st
 # TEMA STATE
 # ===============================
 import streamlit as st
+from streamlit_lottie import st_lottie
+import requests
 
-st.title("🎄 Yılbaşı Uygulaması")
+def load_lottieurl(url: str):
+    try:
+        r = requests.get(url)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except Exception:
+        return None
 
-# HTML ile kar efekti
-snow_html = """
-<script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
-<div style="display:flex;justify-content:center;">
-    <dotlottie-player src="https://lottie.host/4037617c-6744-4860-93a9-e08a467773f3/WunS0IqfP4.json" 
-    background="transparent" speed="1" style="width: 300px; height: 300px;" loop autoplay></dotlottie-player>
-</div>
-"""
-st.components.v1.html(snow_html, height=300)
+# Kar yağışı animasyonu (URL'yi yeniledim)
+lottie_url = "https://assets8.lottiefiles.com/packages/lf20_96as4imv.json"
+lottie_snow = load_lottieurl(lottie_url)
+
+# Hata kontrolü: Eğer veri gelmediyse bileşeni çağırma
+if lottie_snow:
+    st_lottie(lottie_snow, speed=1, loop=True, height=300, key="snow")
+else:
+    # Kar gelmezse klasik Streamlit karını kullan
+    st.snow()
+    st.warning("Kar animasyonu yüklenemedi, standart efekt kullanılıyor.")
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
