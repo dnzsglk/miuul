@@ -68,10 +68,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🎄 Mutlu Yıllar!")
-st.write("Sven-Bo'nun kar efekti başarıyla eklendi.")
-
-
 # =============================================================================
 # 1. YARDIMCI FONKSİYONLAR (SENİN KODUNUN AYNISI)
 # =============================================================================
