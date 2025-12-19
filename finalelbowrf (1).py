@@ -38,97 +38,38 @@ st.set_page_config(page_title="Miuul Alışveriş Analizi (Final)", page_icon="�
 # --------------------------------------------------
 # SAYFA AYARLARI
 # --------------------------------------------------
-st.set_page_config(
-    page_title="Yılbaşı Temalı Dashboard",
-    layout="wide"
+import streamlit as st
+
+# 1. Yerel CSS'i yükleme fonksiyonu
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# CSS dosyasını çağır (Dosya yolunun doğru olduğundan emin ol)
+local_css("style/style.css")
+
+# 2. Kar tanelerini (Emoji olarak) ekrana bas
+# Ne kadar çok div eklersen o kadar çok kar tanesi görünür
+animation_symbol = "❄️"
+
+st.markdown(
+    f"""
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    """,
+    unsafe_allow_html=True,
 )
 
-# --------------------------------------------------
-# SESSION STATE
-# --------------------------------------------------
-if "newyear_theme" not in st.session_state:
-    st.session_state.newyear_theme = True
-
-# --------------------------------------------------
-# CSS TEMALAR
-# --------------------------------------------------
-def newyear_css():
-    st.markdown("""
-    <style>
-    /* Ana arka plan */
-    [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #0b1d13, #04110a);
-        color: #fefae0;
-    }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: #132e1f;
-        color: #fefae0;
-    }
-
-    /* Başlıklar */
-    h1, h2, h3 {
-        color: #e9c46a;
-    }
-
-    /* Kart hissi */
-    .stMetric, .stDataFrame {
-        background-color: rgba(255,255,255,0.05);
-        border-radius: 12px;
-        padding: 10px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-
-def normal_css():
-    st.markdown("""
-    <style>
-    [data-testid="stAppViewContainer"] {
-        background-color: #020617;
-        color: #e5e7eb;
-    }
-
-    section[data-testid="stSidebar"] {
-        background-color: #020617;
-        color: #e5e7eb;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
-with st.sidebar:
-    st.markdown("## 🎨 Tema Ayarları")
-    st.session_state.newyear_theme = st.toggle(
-        "🎄 Yılbaşı Teması",
-        value=st.session_state.newyear_theme
-    )
-
-# --------------------------------------------------
-# TEMA UYGULAMA
-# --------------------------------------------------
-if st.session_state.newyear_theme:
-    newyear_css()
-    st.snow()   # ❄️ STREAMLIT'İN STABİL KAR EFEKTİ
-else:
-    normal_css()
-
-# --------------------------------------------------
-# UYGULAMA İÇERİĞİ
-# --------------------------------------------------
-st.title("🎄 Yılbaşı Temalı Dashboard")
-st.write("Bu sayfa **stabil**, **layout-safe** ve **production uyumlu** bir yılbaşı teması kullanır.")
-
-col1, col2, col3 = st.columns(3)
-col1.metric("🎁 Hediye", "128")
-col2.metric("❄️ Kar Tanesi", "∞")
-col3.metric("🎆 Gün", "31 Aralık")
-
-st.markdown("---")
-st.write("İçeriğini buradan itibaren güvenle geliştirebilirsin.")
+st.title("🎄 Mutlu Yıllar!")
+st.write("Sven-Bo'nun kar efekti başarıyla eklendi.")
 
 
 # =============================================================================
