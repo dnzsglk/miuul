@@ -96,7 +96,7 @@ def play_holiday_music():
 def fallback_audio():
     st.sidebar.markdown("### 🎅 Yılbaşı Müziği")
     # Alternatif çalışan bir link
-    url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
     st.sidebar.audio(url)
     st.sidebar.info("Eğer otomatik çalmazsa yukarıdaki 'Play'e basın.")
 
