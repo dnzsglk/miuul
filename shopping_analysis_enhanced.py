@@ -329,103 +329,95 @@ with tab_eda:
     
     st.divider()
     
-    # Filtreler
-    st.subheader("🔍 İnteraktif Filtreler")
-    filter_col1, filter_col2, filter_col3 = st.columns(3)
-    
-    with filter_col1:
-        age_range = st.slider("Yaş Aralığı", 
-                             int(df_raw['AGE'].min()), 
-                             int(df_raw['AGE'].max()), 
-                             (int(df_raw['AGE'].min()), int(df_raw['AGE'].max())))
-    with filter_col2:
-        selected_categories = st.multiselect("Kategori Seçin", 
-                                            df_raw['CATEGORY'].unique(),
-                                            default=df_raw['CATEGORY'].unique())
-    with filter_col3:
-        selected_gender = st.multiselect("Cinsiyet Seçin",
-                                        df_raw['GENDER'].unique(),
-                                        default=df_raw['GENDER'].unique())
-    
-    # Filtrelenmiş veri
-    df_filtered = df_raw[
-        (df_raw['AGE'] >= age_range[0]) & 
-        (df_raw['AGE'] <= age_range[1]) &
-        (df_raw['CATEGORY'].isin(selected_categories)) &
-        (df_raw['GENDER'].isin(selected_gender))
-    ]
-    
-    st.info(f"Filtrelenmiş veri: {len(df_filtered)} müşteri")
-    
-    st.divider()
-    
     # Görselleştirmeler
-    st.subheader("📊 Görselleştirmeler")
+    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
     
     viz_col1, viz_col2 = st.columns(2)
     
     with viz_col1:
-        st.markdown("**Harcama Dağılımı**")
+        st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
         fig1, ax1 = plt.subplots(figsize=(10, 5))
-        sns.histplot(df_filtered['PURCHASE_AMOUNT_(USD)'], kde=True, ax=ax1, color='#f4a261', bins=30)
+        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
+            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
+            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
         ax1.set_xlabel('Harcama Tutarı ($)')
-        ax1.set_ylabel('Frekans')
-        ax1.set_title('Harcama Dağılımı')
+        ax1.set_ylabel('Yoğunluk')
+        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
         st.pyplot(fig1)
         
-        st.markdown("**Cinsiyet Dağılımı**")
+        st.markdown("**Kategori Bazlı Abonelik Oranları**")
         fig2, ax2 = plt.subplots(figsize=(10, 5))
-        gender_counts = df_filtered['GENDER'].value_counts()
-        colors = ['#d62828', '#f4a261']
-        ax2.pie(gender_counts.values, labels=gender_counts.index, autopct='%1.1f%%', colors=colors)
-        ax2.set_title('Cinsiyet Dağılımı')
+        category_sub = df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS'].apply(lambda x: (x=='Yes').sum() / len(x) * 100).sort_values(ascending=True)
+        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2, palette='viridis')
+        ax2.set_xlabel('Abonelik Oranı (%)')
+        ax2.set_ylabel('Kategori')
+        ax2.set_title('Kategori Bazında Abonelik Oranları')
+        ax2.grid(True, alpha=0.3, axis='x')
         st.pyplot(fig2)
     
     with viz_col2:
-        st.markdown("**Kategori Bazlı Satışlar**")
+        st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
         fig3, ax3 = plt.subplots(figsize=(10, 5))
-        category_sales = df_filtered.groupby('CATEGORY')['PURCHASE_AMOUNT_(USD)'].sum().sort_values(ascending=True)
-        sns.barplot(x=category_sales.values, y=category_sales.index, ax=ax3, palette='viridis')
-        ax3.set_xlabel('Toplam Satış ($)')
-        ax3.set_ylabel('Kategori')
-        ax3.set_title('Kategori Bazında Satış Performansı')
+        sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
+        ax3.set_xlabel('Abonelik Durumu')
+        ax3.set_ylabel('Yaş')
+        ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
+        ax3.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig3)
         
-        st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
+        st.markdown("**Geçmiş Alışveriş vs Abonelik**")
         fig4, ax4 = plt.subplots(figsize=(10, 5))
-        sns.boxplot(data=df_filtered, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax4, palette=['#d62828', '#28a745'])
+        sns.boxplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='PREVIOUS_PURCHASES', ax=ax4, palette=['#d62828', '#28a745'])
         ax4.set_xlabel('Abonelik Durumu')
-        ax4.set_ylabel('Yaş')
-        ax4.set_title('Abonelik Durumuna Göre Yaş')
+        ax4.set_ylabel('Geçmiş Alışveriş Sayısı')
+        ax4.set_title('Geçmiş Alışveriş ve Abonelik İlişkisi')
+        ax4.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig4)
+    
+    st.divider()
+    
+    # Abonelik İstatistikleri
+    st.subheader("📈 Abonelik İstatistikleri")
+    
+    stat_col1, stat_col2 = st.columns(2)
+    
+    with stat_col1:
+        st.markdown("**Promosyon Kullanımı vs Abonelik**")
+        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig5, ax5 = plt.subplots(figsize=(8, 5))
+        promo_sub.plot(kind='bar', ax=ax5, color=['#d62828', '#28a745'], rot=0)
+        ax5.set_xlabel('Promosyon Kullanımı')
+        ax5.set_ylabel('Yüzde (%)')
+        ax5.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        ax5.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax5.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig5)
+    
+    with stat_col2:
+        st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
+        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig6, ax6 = plt.subplots(figsize=(8, 5))
+        gender_sub.plot(kind='bar', ax=ax6, color=['#d62828', '#28a745'], rot=0)
+        ax6.set_xlabel('Cinsiyet')
+        ax6.set_ylabel('Yüzde (%)')
+        ax6.set_title('Cinsiyet Bazında Abonelik Dağılımı')
+        ax6.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax6.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig6)
     
     st.divider()
     
     # Korelasyon Matrisi
     st.subheader("🔥 Korelasyon Analizi")
-    numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns
-    corr_matrix = df_filtered[numeric_cols].corr()
+    numeric_cols = df_raw.select_dtypes(include=[np.number]).columns
+    corr_matrix = df_raw[numeric_cols].corr()
     
-    fig5, ax5 = plt.subplots(figsize=(12, 8))
-    sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', ax=ax5, center=0)
-    ax5.set_title('Korelasyon Matrisi')
-    st.pyplot(fig5)
-    
-    st.divider()
-    
-    # Detaylı İstatistikler
-    st.subheader("📋 Detaylı İstatistikler")
-    st.dataframe(df_filtered.describe().T.style.background_gradient(cmap='Blues'))
-    
-    # CSV İndirme
-    st.subheader("💾 Veri İndirme")
-    csv = df_filtered.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="📥 Filtrelenmiş Veriyi İndir (CSV)",
-        data=csv,
-        file_name=f'filtered_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
-        mime='text/csv',
-    )
+    fig7, ax7 = plt.subplots(figsize=(12, 8))
+    sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', ax=ax7, center=0)
+    ax7.set_title('Korelasyon Matrisi')
+    st.pyplot(fig7)
 
 # =============================================================================
 # TAB 2: SEGMENTASYON
@@ -567,96 +559,65 @@ with tab_seg:
         'REVIEW_RATING': 'mean'
     }).round(3)
     
-    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Geçmiş Alışveriş', 'Ort. Rating']
+    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
     segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
     
     # Segment isimlerini ekle
     segment_names = profile['Segment İsmi'].to_dict()
     segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
-    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Geçmiş Alışveriş', 'Ort. Rating']]
     
-    # Risk skorları hesapla
-    # Düşük abonelik oranı + Yüksek harcama = Yüksek kayıp riski
-    avg_sub_rate = segment_sub_rate['Abonelik Oranı'].mean()
-    avg_spend = segment_sub_rate['Ort. Harcama'].mean()
+    # Sıralama: Cluster numarasına göre (default)
+    segment_sub_rate = segment_sub_rate.sort_index()
+    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
     
-    def calculate_risk(row):
-        risk_score = 0
-        reasons = []
-        
-        # Düşük abonelik oranı
-        if row['Abonelik Oranı'] < avg_sub_rate * 0.8:
-            risk_score += 3
-            reasons.append(f"Düşük abonelik ({row['Abonelik Oranı']:.1f}%)")
-        
-        # Yüksek harcama ama düşük abonelik
-        if row['Ort. Harcama'] > avg_spend and row['Abonelik Oranı'] < avg_sub_rate:
-            risk_score += 2
-            reasons.append("Değerli ama abone değil")
-        
-        # Düşük rating
-        if row['Ort. Rating'] < 3.5:
-            risk_score += 2
-            reasons.append(f"Düşük memnuniyet ({row['Ort. Rating']:.1f})")
-        
-        # Az alışveriş geçmişi
-        if row['Ort. Geçmiş Alışveriş'] < 15:
-            risk_score += 1
-            reasons.append("Yeni/Az aktif müşteri")
-        
-        return risk_score, ", ".join(reasons) if reasons else "Risk düşük"
-    
-    segment_sub_rate[['Risk Skoru', 'Risk Nedenleri']] = segment_sub_rate.apply(
-        lambda row: pd.Series(calculate_risk(row)), axis=1
-    )
-    
-    # Risk seviyesi
-    def risk_level(score):
-        if score >= 6: return "🔴 Kritik"
-        elif score >= 4: return "🟠 Yüksek"
-        elif score >= 2: return "🟡 Orta"
-        else: return "🟢 Düşük"
-    
-    segment_sub_rate['Risk Seviyesi'] = segment_sub_rate['Risk Skoru'].apply(risk_level)
-    
-    # Sıralama: En riskli en üstte
-    segment_sub_rate = segment_sub_rate.sort_values('Risk Skoru', ascending=False)
-    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Risk Seviyesi', 'Risk Skoru', 'Müşteri Sayısı', 
-                                         'Abonelik Oranı', 'Ort. Harcama', 'Ort. Rating', 'Risk Nedenleri']]
-    
-    st.dataframe(segment_sub_rate.style.background_gradient(cmap='Reds', subset=['Risk Skoru']).format({
+    st.dataframe(segment_sub_rate.style.background_gradient(cmap='RdYlGn', subset=['Abonelik Oranı', 'Ort. Rating']).format({
         'Abonelik Oranı': '{:.1f}%',
         'Ort. Harcama': '${:.2f}',
-        'Ort. Rating': '{:.2f}',
-        'Risk Skoru': '{:.0f}'
+        'Ort. Alışveriş Sayısı': '{:.1f}',
+        'Ort. Rating': '{:.2f}'
     }))
     
     # Aksiyon Önerileri
     st.subheader("💡 Önerilen Aksiyonlar")
     
-    critical_segments = segment_sub_rate[segment_sub_rate['Risk Skoru'] >= 4]
+    # Düşük abonelik oranlı segmentler
+    low_sub_segments = segment_sub_rate[segment_sub_rate['Abonelik Oranı'] < segment_sub_rate['Abonelik Oranı'].mean()]
     
-    if len(critical_segments) > 0:
-        st.warning(f"⚠️ **{len(critical_segments)} segment yüksek risk altında!**")
+    if len(low_sub_segments) > 0:
+        st.warning(f"⚠️ **{len(low_sub_segments)} segment ortalamanın altında abonelik oranına sahip!**")
         
-        for idx, row in critical_segments.iterrows():
-            with st.expander(f"📌 {row['Segment İsmi']} - {row['Risk Seviyesi']}"):
-                st.write(f"**Müşteri Sayısı:** {row['Müşteri Sayısı']:.0f}")
-                st.write(f"**Abonelik Oranı:** {row['Abonelik Oranı']:.1f}%")
-                st.write(f"**Ortalama Harcama:** ${row['Ort. Harcama']:.2f}")
-                st.write(f"**Risk Nedenleri:** {row['Risk Nedenleri']}")
+        for idx, row in low_sub_segments.iterrows():
+            with st.expander(f"📌 Cluster {idx}: {row['Segment İsmi']}"):
+                col_exp1, col_exp2 = st.columns(2)
                 
-                st.markdown("**Önerilen Aksiyonlar:**")
-                if "Düşük abonelik" in row['Risk Nedenleri']:
-                    st.write("✅ Abonelik teşvik kampanyası başlat (ilk ay %50 indirim)")
-                if "Değerli ama abone değil" in row['Risk Nedenleri']:
-                    st.write("✅ VIP abonelik paketi sun (özel avantajlarla)")
-                if "Düşük memnuniyet" in row['Risk Nedenleri']:
-                    st.write("✅ Müşteri memnuniyeti anketi gönder ve sorunları tespit et")
-                if "Yeni/Az aktif" in row['Risk Nedenleri']:
-                    st.write("✅ Hoş geldin kampanyası + sadakat programı tanıt")
+                with col_exp1:
+                    st.metric("Müşteri Sayısı", f"{row['Müşteri Sayısı']:.0f}")
+                    st.metric("Abonelik Oranı", f"{row['Abonelik Oranı']:.1f}%")
+                    st.metric("Ort. Harcama", f"${row['Ort. Harcama']:.2f}")
+                
+                with col_exp2:
+                    st.metric("Ort. Alışveriş Sayısı", f"{row['Ort. Alışveriş Sayısı']:.1f}")
+                    st.metric("Ort. Rating", f"{row['Ort. Rating']:.2f}")
+                
+                st.markdown("**🎯 Önerilen Aksiyonlar:**")
+                
+                if row['Abonelik Oranı'] < 30:
+                    st.write("✅ Agresif abonelik kampanyası (ilk 3 ay %50 indirim)")
+                elif row['Abonelik Oranı'] < 50:
+                    st.write("✅ Orta düzey abonelik teşviki (ilk ay %30 indirim)")
+                
+                if row['Ort. Harcama'] > segment_sub_rate['Ort. Harcama'].mean():
+                    st.write("✅ VIP müşteri programı sun (premium avantajlar)")
+                
+                if row['Ort. Rating'] < 3.5:
+                    st.write("✅ Müşteri memnuniyeti anketleri ve iyileştirme planı")
+                
+                if row['Ort. Alışveriş Sayısı'] < 20:
+                    st.write("✅ Sadakat programı ve tekrar satın alma teşvikleri")
+                else:
+                    st.write("✅ Sadık müşteri ödüllendirme programı")
     else:
-        st.success("✅ Kritik risk seviyesinde segment bulunmuyor!")
+        st.success("✅ Tüm segmentler ortalamanın üzerinde abonelik oranına sahip!")
     
     # Cluster boyutları
     st.subheader("📏 Segment Boyutları")
