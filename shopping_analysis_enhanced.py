@@ -1011,30 +1011,111 @@ with tab_sim:
         user_row = full_encoded.iloc[[-1]].drop(columns=['SUBSCRIPTION_STATUS'] + leakage_cols)
         user_row = user_row.reindex(columns=X.columns, fill_value=0)
         
+        # Abonelik tahmini
         user_s = scaler_model.transform(user_row)
         prob = final_model.predict_proba(user_s)[0][1]
+        
+        # Cluster tahmini
+        segmentation_cols = [
+            'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 
+            'FREQUENCY_VALUE_NEW', 'PROMO_CODE_USED', 
+            'SPEND_PER_PURCHASE_NEW', 'LOYALTY_SCORE_NEW', 'CLIMATE_LOYALTY_NEW'
+        ]
+        
+        # Kullanıcının segmentasyon için gerekli özelliklerini al
+        user_seg_data = full_encoded.iloc[[-1]][[c for c in segmentation_cols if c in full_encoded.columns]]
+        user_seg_data.fillna(0, inplace=True)
+        
+        # Scale et (segmentasyon için kullanılan scaler ile)
+        user_seg_scaled = scaler_seg.transform(user_seg_data)
+        
+        # Cluster tahmini yap
+        predicted_cluster = kmeans.predict(user_seg_scaled)[0]
+        
+        # Segment ismini al
+        segment_name = profile.loc[predicted_cluster, 'Segment İsmi']
         
         thr = st.session_state['best_threshold']
         
         st.divider()
-        col_r1, col_r2 = st.columns([1, 2])
+        
+        # 3 kolonlu layout: Abonelik, Cluster, Profil
+        col_r1, col_r2, col_r3 = st.columns([1, 1, 1.5])
+        
         with col_r1:
+            st.subheader("🎯 Abonelik Tahmini")
             if prob >= thr:
-                st.success(f"## ✅ ABONE OLUR\n### İhtimal: %{prob*100:.1f}")
-                st.caption(f"(Threshold: %{thr*100:.0f})")
+                st.success(f"### ✅ ABONE OLUR")
+                st.metric("İhtimal", f"%{prob*100:.1f}")
             else:
-                st.error(f"## ❌ ABONE OLMAZ\n### İhtimal: %{prob*100:.1f}")
-                st.caption(f"(Threshold: %{thr*100:.0f})")
+                st.error(f"### ❌ ABONE OLMAZ")
+                st.metric("İhtimal", f"%{prob*100:.1f}")
             
+            st.caption(f"Threshold: %{thr*100:.0f}")
             st.progress(prob)
-            
+        
         with col_r2:
-            st.info("**📋 Müşteri Profili Özeti:**")
-            st.write(f"• **Yaş:** {age}")
-            st.write(f"• **Lokasyon:** {loc}")
-            st.write(f"• **Kategori:** {cat}")
-            st.write(f"• **Harcama:** ${spend}")
-            st.write(f"• **Geçmiş Alışveriş:** {prev}")
-            st.write(f"• **Sıklık:** {freq}")
-            st.write(f"• **Rating:** {rating}")
-            st.write(f"• **Promosyon:** {promo}")
+            st.subheader("🧩 Segment Tahmini")
+            st.info(f"### Cluster {predicted_cluster}")
+            st.success(f"**{segment_name}**")
+            
+            # Cluster istatistikleri
+            if predicted_cluster in segment_sub_rate.index:
+                cluster_info = segment_sub_rate.loc[predicted_cluster]
+                st.metric("Segment Abonelik Oranı", f"{cluster_info['Abonelik Oranı']:.1f}%")
+                st.metric("Segment Müşteri Sayısı", f"{cluster_info['Müşteri Sayısı']:.0f}")
+        
+        with col_r3:
+            st.subheader("📋 Müşteri Profili")
+            profile_col1, profile_col2 = st.columns(2)
+            
+            with profile_col1:
+                st.write(f"👤 **Yaş:** {age}")
+                st.write(f"🚹🚺 **Cinsiyet:** {gender}")
+                st.write(f"📍 **Lokasyon:** {loc}")
+                st.write(f"🛒 **Kategori:** {cat}")
+            
+            with profile_col2:
+                st.write(f"💰 **Harcama:** ${spend}")
+                st.write(f"📦 **Geçmiş Alışveriş:** {prev}")
+                st.write(f"🔄 **Sıklık:** {freq}")
+                st.write(f"⭐ **Rating:** {rating}")
+            
+            st.write(f"🎁 **Promosyon:** {promo}")
+        
+        st.divider()
+        
+        # Segment karşılaştırması
+        st.subheader("📊 Segment Profili ve Karşılaştırma")
+        
+        comp_col1, comp_col2 = st.columns(2)
+        
+        with comp_col1:
+            st.markdown(f"**Cluster {predicted_cluster} ({segment_name}) Profili:**")
+            if predicted_cluster in segment_sub_rate.index:
+                cluster_profile = segment_sub_rate.loc[predicted_cluster]
+                st.write(f"• Ortalama Harcama: ${cluster_profile['Ort. Harcama']:.2f}")
+                st.write(f"• Ortalama Alışveriş: {cluster_profile['Ort. Alışveriş Sayısı']:.1f}")
+                st.write(f"• Ortalama Rating: {cluster_profile['Ort. Rating']:.2f}")
+                st.write(f"• Abonelik Oranı: {cluster_profile['Abonelik Oranı']:.1f}%")
+        
+        with comp_col2:
+            st.markdown("**🎯 Öneriler:**")
+            
+            if predicted_cluster in segment_sub_rate.index:
+                cluster_info = segment_sub_rate.loc[predicted_cluster]
+                
+                if cluster_info['Abonelik Oranı'] < 40:
+                    st.warning("⚠️ Bu segment düşük abonelik oranına sahip")
+                    st.write("💡 Agresif abonelik kampanyası uygulayın")
+                elif cluster_info['Abonelik Oranı'] < 60:
+                    st.info("ℹ️ Orta düzey abonelik potansiyeli")
+                    st.write("💡 Kişiselleştirilmiş teklifler sunun")
+                else:
+                    st.success("✅ Yüksek abonelik potansiyeli")
+                    st.write("💡 Sadakat programı ile uzun vadeli bağ kurun")
+                
+                if prob >= thr and cluster_info['Abonelik Oranı'] >= 50:
+                    st.success("🎉 Hem model hem de segment abone olma olasılığı yüksek!")
+                elif prob < thr and cluster_info['Abonelik Oranı'] < 40:
+                    st.error("⚠️ Hem model hem de segment düşük abonelik gösteriyor - Dikkatli yaklaşın")
