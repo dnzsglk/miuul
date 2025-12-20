@@ -493,11 +493,52 @@ with tab_seg:
     df_report['Cluster'] = clusters
     df_report['PROMO_USED_VAL'] = df_report['PROMO_CODE_USED'].apply(lambda x: 1 if x=='Yes' else 0)
     
+    # Segment isimlendirme fonksiyonu
+    def name_segment(row):
+        spend = row['TOTAL_SPEND_WEIGHTED_NEW']
+        age = row['Ortalama Yaş']
+        promo = row['Promo Kullanım Oranı (%)']
+        
+        # Harcama seviyesi
+        if spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.75):
+            spend_level = "VIP"
+        elif spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.50):
+            spend_level = "Yüksek Değerli"
+        elif spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.25):
+            spend_level = "Orta Değerli"
+        else:
+            spend_level = "Potansiyel"
+        
+        # Yaş grubu
+        if age < 30:
+            age_group = "Genç"
+        elif age < 45:
+            age_group = "Orta Yaş"
+        else:
+            age_group = "Olgun"
+        
+        # Promo kullanımı
+        if promo > 60:
+            promo_type = "Fırsat Avcısı"
+        elif promo > 30:
+            promo_type = "Promosyon Duyarlı"
+        else:
+            promo_type = "Sadık"
+        
+        return f"{spend_level} {age_group} {promo_type}"
+    
     st.subheader("📊 Segment Profilleri")
     profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'CLIMATE_ITEM_FIT_SCORE_NEW', 'PROMO_USED_VAL']].mean()
     profile.columns = ['Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']
     profile['Promo Kullanım Oranı (%)'] = profile['Promo Kullanım Oranı (%)'] * 100
-    st.dataframe(profile.style.background_gradient(cmap='Blues').format({
+    
+    # Segment isimlerini ekle
+    profile['Segment İsmi'] = profile.apply(name_segment, axis=1)
+    
+    # Sıralamayı değiştir: İsim önce
+    profile = profile[['Segment İsmi', 'Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']]
+    
+    st.dataframe(profile.style.background_gradient(cmap='Blues', subset=['Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']).format({
         'Ortalama Yaş': '{:.1f}',
         'Toplam Harcama': '${:.2f}',
         'İklim Uyum Skoru': '{:.3f}',
