@@ -806,7 +806,7 @@ with tab_comp:
                 'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
                 'Random Forest': RandomForestClassifier(n_estimators=200, max_depth=12, random_state=42, class_weight='balanced'),
                 'XGBoost': XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.1, random_state=42),
-                'LightGBM': LGBMClassifier(n_estimators=200, max_depth=8, learning_rate=0.1, random_state=42)
+                'LightGBM': LGBMClassifier(n_estimators=200, max_depth=8, learning_rate=0.1, random_state=42,verbose = -1)
             }
             
             results = []
