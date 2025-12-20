@@ -493,11 +493,14 @@ with tab_seg:
     df_report['Cluster'] = clusters
     df_report['PROMO_USED_VAL'] = df_report['PROMO_CODE_USED'].apply(lambda x: 1 if x=='Yes' else 0)
     
-    # Segment isimlendirme fonksiyonu
+    st.subheader("📊 Segment Profilleri")
+    profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'CLIMATE_ITEM_FIT_SCORE_NEW', 'PROMO_USED_VAL']].mean()
+    
+    # Segment isimlendirme fonksiyonu (sütun rename'den ÖNCE)
     def name_segment(row):
         spend = row['TOTAL_SPEND_WEIGHTED_NEW']
-        age = row['Ortalama Yaş']
-        promo = row['Promo Kullanım Oranı (%)']
+        age = row['AGE']
+        promo = row['PROMO_USED_VAL'] * 100
         
         # Harcama seviyesi
         if spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.75):
@@ -527,13 +530,17 @@ with tab_seg:
         
         return f"{spend_level} {age_group} {promo_type}"
     
-    st.subheader("📊 Segment Profilleri")
-    profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'CLIMATE_ITEM_FIT_SCORE_NEW', 'PROMO_USED_VAL']].mean()
-    profile.columns = ['Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']
-    profile['Promo Kullanım Oranı (%)'] = profile['Promo Kullanım Oranı (%)'] * 100
-    
-    # Segment isimlerini ekle
+    # Segment isimlerini ekle (rename'den ÖNCE)
     profile['Segment İsmi'] = profile.apply(name_segment, axis=1)
+    
+    # Şimdi sütun isimlerini değiştir
+    profile = profile.rename(columns={
+        'AGE': 'Ortalama Yaş',
+        'TOTAL_SPEND_WEIGHTED_NEW': 'Toplam Harcama',
+        'CLIMATE_ITEM_FIT_SCORE_NEW': 'İklim Uyum Skoru',
+        'PROMO_USED_VAL': 'Promo Kullanım Oranı (%)'
+    })
+    profile['Promo Kullanım Oranı (%)'] = profile['Promo Kullanım Oranı (%)'] * 100
     
     # Sıralamayı değiştir: İsim önce
     profile = profile[['Segment İsmi', 'Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']]
