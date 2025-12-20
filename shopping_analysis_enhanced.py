@@ -494,7 +494,7 @@ with tab_seg:
     df_report['PROMO_USED_VAL'] = df_report['PROMO_CODE_USED'].apply(lambda x: 1 if x=='Yes' else 0)
     
     st.subheader("📊 Segment Profilleri")
-    profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'CLIMATE_ITEM_FIT_SCORE_NEW', 'PROMO_USED_VAL']].mean()
+    profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'PROMO_USED_VAL']].mean()
     
     # Segment isimlendirme fonksiyonu (sütun rename'den ÖNCE)
     def name_segment(row):
@@ -537,20 +537,126 @@ with tab_seg:
     profile = profile.rename(columns={
         'AGE': 'Ortalama Yaş',
         'TOTAL_SPEND_WEIGHTED_NEW': 'Toplam Harcama',
-        'CLIMATE_ITEM_FIT_SCORE_NEW': 'İklim Uyum Skoru',
         'PROMO_USED_VAL': 'Promo Kullanım Oranı (%)'
     })
     profile['Promo Kullanım Oranı (%)'] = profile['Promo Kullanım Oranı (%)'] * 100
     
     # Sıralamayı değiştir: İsim önce
-    profile = profile[['Segment İsmi', 'Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']]
+    profile = profile[['Segment İsmi', 'Ortalama Yaş', 'Toplam Harcama', 'Promo Kullanım Oranı (%)']]
     
-    st.dataframe(profile.style.background_gradient(cmap='Blues', subset=['Ortalama Yaş', 'Toplam Harcama', 'İklim Uyum Skoru', 'Promo Kullanım Oranı (%)']).format({
+    st.dataframe(profile.style.background_gradient(cmap='Blues', subset=['Ortalama Yaş', 'Toplam Harcama', 'Promo Kullanım Oranı (%)']).format({
         'Ortalama Yaş': '{:.1f}',
         'Toplam Harcama': '${:.2f}',
-        'İklim Uyum Skoru': '{:.3f}',
         'Promo Kullanım Oranı (%)': '{:.1f}%'
     }))
+    
+    st.divider()
+    
+    # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
+    st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
+    
+    # Abonelik durumu ile segment analizi
+    df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
+    
+    # Her segment için abonelik oranı
+    segment_sub_rate = df_report.groupby('Cluster').agg({
+        'SUBSCRIPTION': 'mean',
+        'CUSTOMER_ID': 'count',
+        'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
+        'PREVIOUS_PURCHASES': 'mean',
+        'REVIEW_RATING': 'mean'
+    }).round(3)
+    
+    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Geçmiş Alışveriş', 'Ort. Rating']
+    segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
+    
+    # Segment isimlerini ekle
+    segment_names = profile['Segment İsmi'].to_dict()
+    segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
+    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Geçmiş Alışveriş', 'Ort. Rating']]
+    
+    # Risk skorları hesapla
+    # Düşük abonelik oranı + Yüksek harcama = Yüksek kayıp riski
+    avg_sub_rate = segment_sub_rate['Abonelik Oranı'].mean()
+    avg_spend = segment_sub_rate['Ort. Harcama'].mean()
+    
+    def calculate_risk(row):
+        risk_score = 0
+        reasons = []
+        
+        # Düşük abonelik oranı
+        if row['Abonelik Oranı'] < avg_sub_rate * 0.8:
+            risk_score += 3
+            reasons.append(f"Düşük abonelik ({row['Abonelik Oranı']:.1f}%)")
+        
+        # Yüksek harcama ama düşük abonelik
+        if row['Ort. Harcama'] > avg_spend and row['Abonelik Oranı'] < avg_sub_rate:
+            risk_score += 2
+            reasons.append("Değerli ama abone değil")
+        
+        # Düşük rating
+        if row['Ort. Rating'] < 3.5:
+            risk_score += 2
+            reasons.append(f"Düşük memnuniyet ({row['Ort. Rating']:.1f})")
+        
+        # Az alışveriş geçmişi
+        if row['Ort. Geçmiş Alışveriş'] < 15:
+            risk_score += 1
+            reasons.append("Yeni/Az aktif müşteri")
+        
+        return risk_score, ", ".join(reasons) if reasons else "Risk düşük"
+    
+    segment_sub_rate[['Risk Skoru', 'Risk Nedenleri']] = segment_sub_rate.apply(
+        lambda row: pd.Series(calculate_risk(row)), axis=1
+    )
+    
+    # Risk seviyesi
+    def risk_level(score):
+        if score >= 6: return "🔴 Kritik"
+        elif score >= 4: return "🟠 Yüksek"
+        elif score >= 2: return "🟡 Orta"
+        else: return "🟢 Düşük"
+    
+    segment_sub_rate['Risk Seviyesi'] = segment_sub_rate['Risk Skoru'].apply(risk_level)
+    
+    # Sıralama: En riskli en üstte
+    segment_sub_rate = segment_sub_rate.sort_values('Risk Skoru', ascending=False)
+    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Risk Seviyesi', 'Risk Skoru', 'Müşteri Sayısı', 
+                                         'Abonelik Oranı', 'Ort. Harcama', 'Ort. Rating', 'Risk Nedenleri']]
+    
+    st.dataframe(segment_sub_rate.style.background_gradient(cmap='Reds', subset=['Risk Skoru']).format({
+        'Abonelik Oranı': '{:.1f}%',
+        'Ort. Harcama': '${:.2f}',
+        'Ort. Rating': '{:.2f}',
+        'Risk Skoru': '{:.0f}'
+    }))
+    
+    # Aksiyon Önerileri
+    st.subheader("💡 Önerilen Aksiyonlar")
+    
+    critical_segments = segment_sub_rate[segment_sub_rate['Risk Skoru'] >= 4]
+    
+    if len(critical_segments) > 0:
+        st.warning(f"⚠️ **{len(critical_segments)} segment yüksek risk altında!**")
+        
+        for idx, row in critical_segments.iterrows():
+            with st.expander(f"📌 {row['Segment İsmi']} - {row['Risk Seviyesi']}"):
+                st.write(f"**Müşteri Sayısı:** {row['Müşteri Sayısı']:.0f}")
+                st.write(f"**Abonelik Oranı:** {row['Abonelik Oranı']:.1f}%")
+                st.write(f"**Ortalama Harcama:** ${row['Ort. Harcama']:.2f}")
+                st.write(f"**Risk Nedenleri:** {row['Risk Nedenleri']}")
+                
+                st.markdown("**Önerilen Aksiyonlar:**")
+                if "Düşük abonelik" in row['Risk Nedenleri']:
+                    st.write("✅ Abonelik teşvik kampanyası başlat (ilk ay %50 indirim)")
+                if "Değerli ama abone değil" in row['Risk Nedenleri']:
+                    st.write("✅ VIP abonelik paketi sun (özel avantajlarla)")
+                if "Düşük memnuniyet" in row['Risk Nedenleri']:
+                    st.write("✅ Müşteri memnuniyeti anketi gönder ve sorunları tespit et")
+                if "Yeni/Az aktif" in row['Risk Nedenleri']:
+                    st.write("✅ Hoş geldin kampanyası + sadakat programı tanıt")
+    else:
+        st.success("✅ Kritik risk seviyesinde segment bulunmuyor!")
     
     # Cluster boyutları
     st.subheader("📏 Segment Boyutları")
