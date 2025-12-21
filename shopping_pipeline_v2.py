@@ -52,17 +52,6 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR SÜSLEMELERİ ---
-st.sidebar.markdown("---")
-
-# Noel Ağacı (Emoji ve Başlık)
-st.sidebar.markdown("""
-    <div style="text-align: center;">
-        <h1 style="font-size: 70px; margin-bottom: 0px;">🎄</h1>
-        <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
 # Müzik Bölümü
 # --- OTOMATİK MÜZİK VE NOEL AĞACI ---
 def add_sidebar_elements():
