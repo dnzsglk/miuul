@@ -432,7 +432,7 @@ with tab_eda:
         st.pyplot(fig4)
 
 # =============================================================================
-# TAB 2: SEGMENTASYON
+# TAB 2: SEGMENTASYON (GÜNCELLENMİŞ)
 # =============================================================================
 with tab_seg:
     st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
@@ -451,62 +451,71 @@ with tab_seg:
     scaler_seg = StandardScaler()
     X_scaled = scaler_seg.fit_transform(X_seg)
     
-    # Elbow Method
-    st.subheader("📈 Optimal K Belirleme (Elbow Method)")
-    
+    # Arka planda optimal K hesabı (Grafik kaldırıldı, sadece değer hesaplanıyor)
     wcss = []
     k_range = range(2, 11)
-    
     for k in k_range:
         km = KMeans(n_clusters=k, random_state=42, n_init=10).fit(X_scaled)
         wcss.append(km.inertia_)
     
-    # Elbow point
     p1 = np.array([k_range[0], wcss[0]])
     p2 = np.array([k_range[-1], wcss[-1]])
     dists = [np.abs(np.cross(p2-p1, p1-np.array([k_range[i], wcss[i]]))) / np.linalg.norm(p2-p1) for i in range(len(wcss))]
     optimal_k = k_range[np.argmax(dists)]
     
-    c1, c2 = st.columns([1, 2])
-    
-    with c1:
-        st.info(f"**Optimal Küme Sayısı (K): {optimal_k}**")
-        
-        # Elbow grafik
-        fig_elb, ax_elb = plt.subplots(figsize=(8, 5))
-        ax_elb.plot(k_range, wcss, 'bo--', linewidth=2, markersize=8)
-        ax_elb.axvline(optimal_k, color='r', linestyle='--', linewidth=2)
-        ax_elb.set_xlabel('Küme Sayısı (K)')
-        ax_elb.set_ylabel('WCSS')
-        ax_elb.set_title(f"Elbow Method (Optimal K={optimal_k})")
-        ax_elb.grid(True, alpha=0.3)
-        st.pyplot(fig_elb)
-    
-    with c2:
-        # KMeans fit
-        kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
-        clusters = kmeans.fit_predict(X_scaled)
-        
-        # Silhouette Score
-        sil_score = silhouette_score(X_scaled, clusters)
-        st.metric("Silhouette Score", f"{sil_score:.3f}")
-        st.caption("Silhouette Score [-1, 1] arasında değişir. 1'e yakın olması kümelerin iyi ayrıştığını gösterir.")
-        
-        # PCA
+    # KMeans fit ve Segmentasyon hazırlığı
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    clusters = kmeans.fit_predict(X_scaled)
+    sil_score = silhouette_score(X_scaled, clusters)
+
+    # Üst Bilgi Metrikleri
+    m1, m2 = st.columns(2)
+    m1.metric("Optimal Küme Sayısı (K)", optimal_k)
+    m2.metric("Silhouette Score", f"{sil_score:.3f}")
+
+    st.divider()
+
+    # --- GRAFİKLERİ YAN YANA KOYMA ---
+    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
+    col_graph1, col_graph2 = st.columns(2)
+
+    with col_graph1:
+        # PCA 2D
         pca = PCA(n_components=2)
         comps = pca.fit_transform(X_scaled)
         df_pca = pd.DataFrame(comps, columns=['PC1', 'PC2'])
         df_pca['Cluster'] = clusters
         
-        fig_pca, ax_pca = plt.subplots(figsize=(10, 6))
+        fig_pca, ax_pca = plt.subplots(figsize=(8, 7))
         scatter = ax_pca.scatter(df_pca['PC1'], df_pca['PC2'], c=df_pca['Cluster'], 
                                 cmap='viridis', s=50, alpha=0.6, edgecolors='w')
         plt.colorbar(scatter, ax=ax_pca, label='Cluster')
         ax_pca.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)')
         ax_pca.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)')
-        ax_pca.set_title(f"Segment Dağılımı (K={optimal_k}, Silhouette={sil_score:.3f})")
+        ax_pca.set_title("2D Segment Dağılımı")
         st.pyplot(fig_pca)
-    
+
+    with col_graph2:
+        # PCA 3D
+        from mpl_toolkits.mplot3d import Axes3D
+        pca3d = PCA(n_components=3)
+        comps3d = pca3d.fit_transform(X_scaled)
+        df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
+        df_pca3d["Cluster"] = clusters
+        
+        fig_3d = plt.figure(figsize=(8, 7))
+        ax_3d = fig_3d.add_subplot(111, projection='3d')
+        
+        scatter_3d = ax_3d.scatter(
+            df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
+            c=df_pca3d["Cluster"], cmap="viridis", s=50, alpha=0.7, edgecolors='w'
+        )
+        ax_3d.set_title("3D Segment Dağılımı")
+        # 3D eksen etiketlerini küçültelim ki yan yana sığsın
+        ax_3d.tick_params(axis='both', which='major', labelsize=8)
+        st.pyplot(fig_3d)
+
+    st.divider()
     st.divider()
     
     # Segment profilleri
