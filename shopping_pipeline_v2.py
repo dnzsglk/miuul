@@ -437,106 +437,75 @@ with tab_eda:
 with tab_seg:
     st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
     
-st.subheader("🔍 Segmentasyon Analizi")
-
-# ==============================
-# 1️⃣ OPTIMUM K & SILHOUETTE
-# ==============================
-col1, col2 = st.columns(2)
-
-with col1:
-    fig_k, ax_k = plt.subplots(figsize=(6, 4), dpi=120)
-    ax_k.plot(k_values, inertia_values, marker="o")
-    ax_k.axvline(optimal_k, linestyle="--", color="red")
-    ax_k.set_title("Optimum Küme Sayısı", fontsize=11)
-    ax_k.set_xlabel("K")
-    ax_k.set_ylabel("Inertia")
-    st.pyplot(fig_k, use_container_width=False)
-
-with col2:
-    fig_s, ax_s = plt.subplots(figsize=(6, 4), dpi=120)
-    ax_s.plot(k_values, silhouette_scores, marker="o", color="green")
-    ax_s.axvline(optimal_k, linestyle="--", color="red")
-    ax_s.set_title("Silhouette Score", fontsize=11)
-    ax_s.set_xlabel("K")
-    ax_s.set_ylabel("Score")
-    st.pyplot(fig_s, use_container_width=False)
-
-
-# ==============================
-# 2️⃣ PCA 2D & PCA 3D (AYNI BOYUT)
-# ==============================
-st.markdown("---")
-
-pca = PCA(n_components=3)
-pca_components = pca.fit_transform(X_scaled)
-
-df_pca = pd.DataFrame(
-    pca_components,
-    columns=["PC1", "PC2", "PC3"]
-)
-df_pca["Cluster"] = clusters
-
-col3, col4 = st.columns(2)
-
-# ---- PCA 2D ----
-with col3:
-    fig_2d, ax_2d = plt.subplots(figsize=(6, 4), dpi=120)
-    scatter_2d = ax_2d.scatter(
-        df_pca["PC1"],
-        df_pca["PC2"],
-        c=df_pca["Cluster"],
-        cmap="viridis",
-        s=40,
-        alpha=0.8
-    )
-    ax_2d.set_title("PCA 2D", fontsize=11)
-    ax_2d.set_xlabel("PC1")
-    ax_2d.set_ylabel("PC2")
-    st.pyplot(fig_2d, use_container_width=False)
-
-# ---- PCA 3D ----
-with col4:
-    fig_3d = plt.figure(figsize=(6, 4), dpi=120)
-    ax_3d = fig_3d.add_subplot(111, projection="3d")
-
-    ax_3d.scatter(
-        df_pca["PC1"],
-        df_pca["PC2"],
-        df_pca["PC3"],
-        c=df_pca["Cluster"],
-        cmap="viridis",
-        s=35,
-        alpha=0.8
-    )
-
-    ax_3d.set_title("PCA 3D", fontsize=11, pad=8)
-    ax_3d.set_xlabel("PC1")
-    ax_3d.set_ylabel("PC2")
-    ax_3d.set_zlabel("PC3")
-
-    st.pyplot(fig_3d, use_container_width=False)
-
-    legend_3d = ax_3d.legend(*scatter_3d.legend_elements(), title="Cluster", loc='upper left')
-    ax_3d.add_artist(legend_3d)
+    segmentation_features = [
+        "PURCHASE_AMOUNT_(USD)",
+        "PREVIOUS_PURCHASES",
+        "FREQUENCY_VALUE_NEW",
+        "SPEND_PER_PURCHASE_NEW",
+        "TOTAL_SPEND_WEIGHTED_NEW"
+    ]
     
-    # Toplam açıklanan varyans
-    total_var = pca3d.explained_variance_ratio_.sum()
-    ax_3d.text2D(0.05, 0.95, f'Toplam Varyans: {total_var*100:.1f}%', 
-                transform=ax_3d.transAxes, fontsize=10, 
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    X_seg = df_eng[[c for c in segmentation_features if c in df_eng.columns]].copy()
+    X_seg.fillna(0, inplace=True)
     
-    st.pyplot(fig_3d)
+    scaler_seg = StandardScaler()
+    X_scaled = scaler_seg.fit_transform(X_seg)
     
-    # Varyans açıklaması
-    var_col1, var_col2 = st.columns(2)
-    with var_col1:
-        st.info(f"**PC1:** {pca3d.explained_variance_ratio_[0]*100:.2f}% varyans açıklıyor")
-        st.info(f"**PC2:** {pca3d.explained_variance_ratio_[1]*100:.2f}% varyans açıklıyor")
-        st.info(f"**PC3:** {pca3d.explained_variance_ratio_[2]*100:.2f}% varyans açıklıyor")
-    with var_col2:
-        st.success(f"**Toplam:** {total_var*100:.2f}% varyans açıklanıyor")
-        st.caption("3 boyutlu PCA, verinin daha fazla varyansını yakalayarak segmentlerin daha iyi görselleştirilmesini sağlar.")
+    # Elbow Method
+    st.subheader("📈 Optimal K Belirleme (Elbow Method)")
+    
+    wcss = []
+    k_range = range(2, 11)
+    
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10).fit(X_scaled)
+        wcss.append(km.inertia_)
+    
+    # Elbow point
+    p1 = np.array([k_range[0], wcss[0]])
+    p2 = np.array([k_range[-1], wcss[-1]])
+    dists = [np.abs(np.cross(p2-p1, p1-np.array([k_range[i], wcss[i]]))) / np.linalg.norm(p2-p1) for i in range(len(wcss))]
+    optimal_k = k_range[np.argmax(dists)]
+    
+    c1, c2 = st.columns([1, 2])
+    
+    with c1:
+        st.info(f"**Optimal Küme Sayısı (K): {optimal_k}**")
+        
+        # Elbow grafik
+        fig_elb, ax_elb = plt.subplots(figsize=(8, 5))
+        ax_elb.plot(k_range, wcss, 'bo--', linewidth=2, markersize=8)
+        ax_elb.axvline(optimal_k, color='r', linestyle='--', linewidth=2)
+        ax_elb.set_xlabel('Küme Sayısı (K)')
+        ax_elb.set_ylabel('WCSS')
+        ax_elb.set_title(f"Elbow Method (Optimal K={optimal_k})")
+        ax_elb.grid(True, alpha=0.3)
+        st.pyplot(fig_elb)
+    
+    with c2:
+        # KMeans fit
+        kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+        clusters = kmeans.fit_predict(X_scaled)
+        
+        # Silhouette Score
+        sil_score = silhouette_score(X_scaled, clusters)
+        st.metric("Silhouette Score", f"{sil_score:.3f}")
+        st.caption("Silhouette Score [-1, 1] arasında değişir. 1'e yakın olması kümelerin iyi ayrıştığını gösterir.")
+        
+        # PCA
+        pca = PCA(n_components=2)
+        comps = pca.fit_transform(X_scaled)
+        df_pca = pd.DataFrame(comps, columns=['PC1', 'PC2'])
+        df_pca['Cluster'] = clusters
+        
+        fig_pca, ax_pca = plt.subplots(figsize=(10, 6))
+        scatter = ax_pca.scatter(df_pca['PC1'], df_pca['PC2'], c=df_pca['Cluster'], 
+                                cmap='viridis', s=50, alpha=0.6, edgecolors='w')
+        plt.colorbar(scatter, ax=ax_pca, label='Cluster')
+        ax_pca.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)')
+        ax_pca.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)')
+        ax_pca.set_title(f"Segment Dağılımı (K={optimal_k}, Silhouette={sil_score:.3f})")
+        st.pyplot(fig_pca)
     
     st.divider()
     
