@@ -371,67 +371,118 @@ with st.spinner('Veri işleniyor...'):
 # =============================================================================
 # TAB 1: EDA
 # =============================================================================
-with tab_eda:
-    st.header("📊 Keşifsel Veri Analizi")
+# with tab_eda:
+#     st.header("📊 Keşifsel Veri Analizi")
     
-    # Genel Metrikler
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Müşteri Sayısı", df_raw.shape[0])
-    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
-    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
-    col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
+#     # Genel Metrikler
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("Müşteri Sayısı", df_raw.shape[0])
+#     col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
+#     col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
+#     col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
+    
+#     st.divider()
+    
+#     # Görselleştirmeler
+#     st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+    
+#     viz_col1, viz_col2 = st.columns(2)
+    
+#     with viz_col1:
+#         st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
+#         fig1, ax1 = plt.subplots(figsize=(10, 5))
+#         for status in df_raw['SUBSCRIPTION_STATUS'].unique():
+#             data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
+#             sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
+#         ax1.set_xlabel('Harcama Tutarı ($)')
+#         ax1.set_ylabel('Yoğunluk')
+#         ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
+#         ax1.legend()
+#         ax1.grid(True, alpha=0.3)
+#         st.pyplot(fig1)
+        
+#         st.markdown("**Kategori Bazlı Abonelik Oranları**")
+#         fig2, ax2 = plt.subplots(figsize=(10, 5))
+#         category_sub = df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS'].apply(lambda x: (x=='Yes').sum() / len(x) * 100).sort_values(ascending=True)
+#         sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2, palette='viridis')
+#         ax2.set_xlabel('Abonelik Oranı (%)')
+#         ax2.set_ylabel('Kategori')
+#         ax2.set_title('Kategori Bazında Abonelik Oranları')
+#         ax2.grid(True, alpha=0.3, axis='x')
+#         st.pyplot(fig2)
+    
+#     with viz_col2:
+#         st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
+#         fig3, ax3 = plt.subplots(figsize=(10, 5))
+#         sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
+#         ax3.set_xlabel('Abonelik Durumu')
+#         ax3.set_ylabel('Yaş')
+#         ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
+#         ax3.grid(True, alpha=0.3, axis='y')
+#         st.pyplot(fig3)
+        
+#         st.markdown("**Promosyon Kullanımı vs Abonelik**")
+#         fig4, ax4 = plt.subplots(figsize=(10, 5))
+#         promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+#         promo_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a745'], rot=0)
+#         ax4.set_xlabel('Promosyon Kullanımı')
+#         ax4.set_ylabel('Yüzde (%)')
+#         ax4.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+#         ax4.legend(title='Abonelik', labels=['No', 'Yes'])
+#         ax4.grid(True, alpha=0.3, axis='y')
+#         st.pyplot(fig4)
+
+# --- EDA TABI İÇİNE EKLEME ---
+with tab_eda:
+    # ... (mevcut grafiklerin altından devam et) ...
     
     st.divider()
+    st.subheader("🎯 Derinlemesine Abonelik Analizi")
     
-    # Görselleştirmeler
-    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+    sub_col1, sub_col2 = st.columns(2)
     
-    viz_col1, viz_col2 = st.columns(2)
-    
-    with viz_col1:
-        st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
-            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
-            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
-        ax1.set_xlabel('Harcama Tutarı ($)')
-        ax1.set_ylabel('Yoğunluk')
-        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        st.pyplot(fig1)
+    with sub_col1:
+        # 1. Yaş Grubu ve Abonelik İlişkisi
+        st.markdown("**Yaş Gruplarına Göre Abonelik Dağılımı**")
+        # Yaş gruplarını dinamik oluştur
+        df_raw['AGE_GROUP'] = pd.cut(df_raw['AGE'], bins=[18, 30, 45, 60, 100], labels=['18-30', '31-45', '46-60', '60+'])
+        age_sub = pd.crosstab(df_raw['AGE_GROUP'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
         
-        st.markdown("**Kategori Bazlı Abonelik Oranları**")
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        category_sub = df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS'].apply(lambda x: (x=='Yes').sum() / len(x) * 100).sort_values(ascending=True)
-        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2, palette='viridis')
-        ax2.set_xlabel('Abonelik Oranı (%)')
-        ax2.set_ylabel('Kategori')
-        ax2.set_title('Kategori Bazında Abonelik Oranları')
-        ax2.grid(True, alpha=0.3, axis='x')
-        st.pyplot(fig2)
-    
-    with viz_col2:
-        st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
-        ax3.set_xlabel('Abonelik Durumu')
-        ax3.set_ylabel('Yaş')
-        ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
-        ax3.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig3)
-        
-        st.markdown("**Promosyon Kullanımı vs Abonelik**")
-        fig4, ax4 = plt.subplots(figsize=(10, 5))
-        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        promo_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a745'], rot=0)
-        ax4.set_xlabel('Promosyon Kullanımı')
-        ax4.set_ylabel('Yüzde (%)')
-        ax4.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax4.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax4.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig4)
+        fig_age, ax_age = plt.subplots(figsize=(10, 6))
+        age_sub.plot(kind='bar', stacked=True, ax=ax_age, color=['#d62828', '#2a9d8f'])
+        ax_age.set_ylabel("Yüzde (%)")
+        ax_age.set_title("Yaş Gruplarında Abone Oranları")
+        plt.xticks(rotation=0)
+        st.pyplot(fig_age)
 
+    with sub_col2:
+        # 2. Ödeme Yöntemi ve Abonelik Etkileşimi
+        st.markdown("**Ödeme Yöntemine Göre Abonelik Durumu**")
+        pay_sub = pd.crosstab(df_raw['PAYMENT_METHOD'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        
+        fig_pay, ax_pay = plt.subplots(figsize=(10, 6))
+        sns.heatmap(pay_sub, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax_pay)
+        ax_pay.set_title("Ödeme Yöntemi vs Abonelik (%)")
+        st.pyplot(fig_pay)
+
+    st.divider()
+    
+    # 3. İstatistiksel Özet Tablosu
+    st.markdown("**Abonelik Durumuna Göre Müşteri Karakteristikleri**")
+    sub_stats = df_raw.groupby('SUBSCRIPTION_STATUS').agg({
+        'PURCHASE_AMOUNT_(USD)': 'mean',
+        'PREVIOUS_PURCHASES': 'mean',
+        'REVIEW_RATING': 'mean',
+        'AGE': 'mean'
+    }).rename(columns={
+        'PURCHASE_AMOUNT_(USD)': 'Ort. Harcama ($)',
+        'PREVIOUS_PURCHASES': 'Ort. Geçmiş Alışveriş',
+        'REVIEW_RATING': 'Ort. Puan',
+        'AGE': 'Ort. Yaş'
+    })
+    
+    # Görselleştirilmiş Tablo
+    st.table(sub_stats.style.format("{:.2f}").background_gradient(cmap='Greens'))
 # =============================================================================
 # TAB 2: SEGMENTASYON
 # =============================================================================
