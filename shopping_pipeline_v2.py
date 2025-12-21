@@ -27,6 +27,40 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi V2", page_icon="🛍️", layout="wide")
 
+# CSS ve Kar Taneleri
+def local_css(file_name):
+    try:
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except:
+        pass
+
+local_css("style.css")
+
+# Kar taneleri
+animation_symbol = "❄️"
+st.markdown(f"""
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    <div class="snowflake">{animation_symbol}</div>
+    """, unsafe_allow_html=True)
+
+# Müzik
+st.sidebar.markdown("---")
+def fallback_audio():
+    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+    st.sidebar.audio(url)
+    st.sidebar.info("🎵 Müzik için Play'e basın")
+
+fallback_audio()
+
 # Tema
 def apply_modern_christmas_theme():
     st.markdown("""
@@ -77,6 +111,14 @@ def apply_modern_christmas_theme():
             border-bottom: 3px solid #d62828 !important;
             font-weight: bold;
         }
+        .snowflake {
+            color: #fff; font-size: 1.2em; position: fixed; top: -10%; z-index: 9999;
+            animation-name: snowflakes-fall, snowflakes-shake;
+            animation-duration: 10s, 3s; animation-iteration-count: infinite;
+            pointer-events: none;
+        }
+        @keyframes snowflakes-fall { 0% {top:-10%} 100% {top:100%} }
+        @keyframes snowflakes-shake { 0% {transform:translateX(0px)} 50% {transform:translateX(80px)} 100% {transform:translateX(0px)} }
         </style>
     """, unsafe_allow_html=True)
 
@@ -300,12 +342,11 @@ with tab_eda:
     st.header("📊 Keşifsel Veri Analizi")
     
     # Genel Metrikler
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Toplam Müşteri", df_raw.shape[0])
-    col2.metric("Train Set", df_eng_train.shape[0])
-    col3.metric("Test Set", df_eng_test.shape[0])
-    col4.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
-    col5.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Müşteri Sayısı", df_raw.shape[0])
+    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
+    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
+    col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
     
     st.divider()
     
@@ -492,12 +533,97 @@ with tab_seg:
         'Promo Kullanım Oranı (%)': '{:.1f}%'
     }))
     
+    # Cluster boyutları
+    st.subheader("📏 Segment Boyutları")
+    cluster_sizes = pd.DataFrame(df_report['Cluster'].value_counts().sort_index())
+    cluster_sizes.columns = ['Müşteri Sayısı']
+    cluster_sizes['Yüzde'] = (cluster_sizes['Müşteri Sayısı'] / cluster_sizes['Müşteri Sayısı'].sum() * 100).round(2)
+    st.dataframe(cluster_sizes.style.background_gradient(cmap='Greens'))
+    
+    st.divider()
+    
+    # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
+    st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
+    
+    # Abonelik durumu ile segment analizi
+    df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
+    
+    # Her segment için abonelik oranı
+    segment_sub_rate = df_report.groupby('Cluster').agg({
+        'SUBSCRIPTION': 'mean',
+        'CUSTOMER_ID': 'count',
+        'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
+        'PREVIOUS_PURCHASES': 'mean',
+        'REVIEW_RATING': 'mean'
+    }).round(3)
+    
+    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
+    segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
+    
+    # Segment isimlerini ekle
+    segment_names = profile['Segment İsmi'].to_dict()
+    segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
+    
+    # Sıralama: Cluster numarasına göre (default)
+    segment_sub_rate = segment_sub_rate.sort_index()
+    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
+    
+    st.dataframe(segment_sub_rate.style.background_gradient(cmap='RdYlGn', subset=['Abonelik Oranı', 'Ort. Rating']).format({
+        'Abonelik Oranı': '{:.1f}%',
+        'Ort. Harcama': '${:.2f}',
+        'Ort. Alışveriş Sayısı': '{:.1f}',
+        'Ort. Rating': '{:.2f}'
+    }))
+    
+    # Aksiyon Önerileri
+    st.subheader("💡 Önerilen Aksiyonlar")
+    
+    # Düşük abonelik oranlı segmentler
+    low_sub_segments = segment_sub_rate[segment_sub_rate['Abonelik Oranı'] < segment_sub_rate['Abonelik Oranı'].mean()]
+    
+    if len(low_sub_segments) > 0:
+        st.warning(f"⚠️ **{len(low_sub_segments)} segment ortalamanın altında abonelik oranına sahip!**")
+        
+        for idx, row in low_sub_segments.iterrows():
+            with st.expander(f"📌 Cluster {idx}: {row['Segment İsmi']}"):
+                col_exp1, col_exp2 = st.columns(2)
+                
+                with col_exp1:
+                    st.metric("Müşteri Sayısı", f"{row['Müşteri Sayısı']:.0f}")
+                    st.metric("Abonelik Oranı", f"{row['Abonelik Oranı']:.1f}%")
+                    st.metric("Ort. Harcama", f"${row['Ort. Harcama']:.2f}")
+                
+                with col_exp2:
+                    st.metric("Ort. Alışveriş Sayısı", f"{row['Ort. Alışveriş Sayısı']:.1f}")
+                    st.metric("Ort. Rating", f"{row['Ort. Rating']:.2f}")
+                
+                st.markdown("**🎯 Önerilen Aksiyonlar:**")
+                
+                if row['Abonelik Oranı'] < 30:
+                    st.write("✅ Agresif abonelik kampanyası (ilk 3 ay %50 indirim)")
+                elif row['Abonelik Oranı'] < 50:
+                    st.write("✅ Orta düzey abonelik teşviki (ilk ay %30 indirim)")
+                
+                if row['Ort. Harcama'] > segment_sub_rate['Ort. Harcama'].mean():
+                    st.write("✅ VIP müşteri programı sun (premium avantajlar)")
+                
+                if row['Ort. Rating'] < 3.5:
+                    st.write("✅ Müşteri memnuniyeti anketleri ve iyileştirme planı")
+                
+                if row['Ort. Alışveriş Sayısı'] < 20:
+                    st.write("✅ Sadakat programı ve tekrar satın alma teşvikleri")
+                else:
+                    st.write("✅ Sadık müşteri ödüllendirme programı")
+    else:
+        st.success("✅ Tüm segmentler ortalamanın üzerinde abonelik oranına sahip!")
+    
     # Session state'e kaydet
     st.session_state['kmeans'] = kmeans
     st.session_state['scaler_seg'] = scaler_seg
     st.session_state['profile'] = profile
     st.session_state['df_report'] = df_report
     st.session_state['optimal_k'] = optimal_k
+    st.session_state['segment_sub_rate'] = segment_sub_rate
 
 # =============================================================================
 # TAB 3: MODEL EĞİTİMİ
