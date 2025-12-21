@@ -1039,56 +1039,9 @@ with tab_comp:
             X_train_s_comp = scaler_comp.fit_transform(X_train_comp)
             X_test_s_comp = scaler_comp.transform(X_test_comp)
             
-            # ==================== 5-FOLD CV KARŞILAŞTIRMA (Pipeline'dan) ====================
-            st.subheader("📊 Model Karşılaştırması (5-Fold Cross Validation)")
-            
-            models = [
-                ("Logistic Regression", LogisticRegression(max_iter=1000)),
-                ("Random Forest", RandomForestClassifier(random_state=42, class_weight='balanced')),
-                ("XGBoost", XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)),
-                ("LightGBM", LGBMClassifier(random_state=42, verbose=-1))
-            ]
-            
-            cv_results = []
-            best_model_name = None
-            best_model_score = -1
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            for idx, (name, model) in enumerate(models):
-                status_text.text(f"Cross-validation yapılıyor: {name}...")
-                cv_scores = cross_val_score(model, X_train_s_comp, y_train_comp, cv=5, scoring='roc_auc', n_jobs=-1)
-                mean_score = cv_scores.mean()
-                std_score = cv_scores.std()
-                
-                cv_results.append({
-                    'Model': name,
-                    'CV AUC Mean': mean_score,
-                    'Std Dev': std_score
-                })
-                
-                if mean_score > best_model_score:
-                    best_model_score = mean_score
-                    best_model_name = name
-                
-                progress_bar.progress((idx + 1) / len(models))
-            
-            status_text.text(f"✅ Kazanan model: {best_model_name}")
-            
-            # CV sonuçları
-            cv_df = pd.DataFrame(cv_results)
-            st.dataframe(cv_df.style.background_gradient(cmap='Greens', subset=['CV AUC Mean']).format({
-                'CV AUC Mean': '{:.4f}',
-                'Std Dev': '{:.4f}'
-            }))
-            
-            st.success(f"🏆 **En İyi Model (CV AUC):** {best_model_name} (AUC: {best_model_score:.4f})")
-            
-            st.divider()
-            
+      
             # ==================== TEST PERFORMANSI (THRESHOLD OPTIMIZED) ====================
-            st.subheader("🎯 Test Seti Performansları (Threshold Optimized)")
+            st.subheader("🎯 Test Seti Performansları"
             
             # Her model için optimal threshold ile test
             results = []
