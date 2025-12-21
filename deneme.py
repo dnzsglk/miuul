@@ -370,67 +370,63 @@ with st.spinner('Veri işleniyor...'):
 # =============================================================================
 # TAB 1: EDA
 # =============================================================================
-with tab_eda:
-    st.header("📊 Keşifsel Veri Analizi")
+# --- TAB 2: MODEL EĞİTİMİ VE KARŞILAŞTIRMA ---
+with tab_model:
+    st.header("##################### 4. MODEL KARŞILAŞTIRMA (5-FOLD CV) #####################")
     
-    # Genel Metrikler
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Müşteri Sayısı", df_raw.shape[0])
-    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
-    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
-    col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
+    # Veri Hazırlığı (Hataları önlemek için)
+    X = pd.get_dummies(df_eng.drop(columns=['CUSTOMER_ID', 'SUBSCRIPTION_STATUS'], errors='ignore'), drop_first=True)
+    y = (df_raw["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
     
-    st.divider()
-    
-    # Görselleştirmeler
-    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
-    
-    viz_col1, viz_col2 = st.columns(2)
-    
-    with viz_col1:
-        st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
-            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
-            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
-        ax1.set_xlabel('Harcama Tutarı ($)')
-        ax1.set_ylabel('Yoğunluk')
-        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        st.pyplot(fig1)
-        
-        st.markdown("**Kategori Bazlı Abonelik Oranları**")
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        category_sub = df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS'].apply(lambda x: (x=='Yes').sum() / len(x) * 100).sort_values(ascending=True)
-        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2, palette='viridis')
-        ax2.set_xlabel('Abonelik Oranı (%)')
-        ax2.set_ylabel('Kategori')
-        ax2.set_title('Kategori Bazında Abonelik Oranları')
-        ax2.grid(True, alpha=0.3, axis='x')
-        st.pyplot(fig2)
-    
-    with viz_col2:
-        st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
-        ax3.set_xlabel('Abonelik Durumu')
-        ax3.set_ylabel('Yaş')
-        ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
-        ax3.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig3)
-        
-        st.markdown("**Promosyon Kullanımı vs Abonelik**")
-        fig4, ax4 = plt.subplots(figsize=(10, 5))
-        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        promo_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a745'], rot=0)
-        ax4.set_xlabel('Promosyon Kullanımı')
-        ax4.set_ylabel('Yüzde (%)')
-        ax4.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax4.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax4.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig4)
+    if st.button("🚀 Modelleri 5-Fold CV ile Yarıştır"):
+        with st.spinner("Modeller çapraz doğrulama ile test ediliyor, lütfen bekleyin..."):
+            
+            # Sinem'in dosyasındaki modeller ve parametreler
+            models = [
+                ("LogisticRegression", LogisticRegression(max_iter=1000)),
+                ("RandomForest", RandomForestClassifier(random_state=42, class_weight='balanced')),
+                ("XGBoost", XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)),
+                ("LightGBM", LGBMClassifier(random_state=42, verbose=-1))
+            ]
 
+            results_list = []
+            
+            # Görselleştirme için sütunlar hazırlayalım
+            for name, model in models:
+                # 5-Fold Cross Validation
+                cv_scores = cross_val_score(model, X, y, cv=5, scoring='roc_auc', n_jobs=-1)
+                
+                results_list.append({
+                    "Model": name,
+                    "CV AUC (Mean)": cv_scores.mean(),
+                    "Std Dev": cv_scores.std()
+                })
+
+            # Sonuçları DataFrame yapıp ekrana basalım
+            res_df = pd.DataFrame(results_list).sort_values(by="CV AUC (Mean)", ascending=False)
+            
+            # Streamlit üzerinde tablo gösterimi
+            st.subheader("📊 Çapraz Doğrulama Sonuçları")
+            st.table(res_df.style.format({"CV AUC (Mean)": "{:.4f}", "Std Dev": "{:.4f}"})
+                           .highlight_max(axis=0, subset=['CV AUC (Mean)'], color='#1e5631'))
+
+            # En iyi modeli seçme ve eğitme
+            best_model_name = res_df.iloc[0]['Model']
+            st.success(f"🏆 KAZANAN MODEL: **{best_model_name}** (AUC: {res_df.iloc[0]['CV AUC (Mean)']:.4f})")
+            
+            # Kazanan modeli tüm veriyle eğitip session_state'e kaydedelim (Tahmin sekmesi için)
+            final_model_instance = next(m[1] for m in models if m[0] == best_model_name)
+            final_model_instance.fit(X, y)
+            
+            st.session_state['final_model'] = final_model_instance
+            st.session_state['best_model_name'] = best_model_name
+            st.session_state['X_columns'] = X.columns.tolist()
+            
+            # Basit bir AUC Grafiği (Opsiyonel)
+            fig_res, ax_res = plt.subplots(figsize=(10, 4))
+            sns.barplot(data=res_df, x='CV AUC (Mean)', y='Model', palette='viridis', ax=ax_res)
+            ax_res.set_xlim(0, 1.0)
+            st.pyplot(fig_res)
 # =============================================================================
 # TAB 2: SEGMENTASYON
 # =============================================================================
