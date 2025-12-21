@@ -967,264 +967,60 @@ with tab_model:
 # =============================================================================
 # TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
+# =============================================================================
+# TAB 4: MODEL KARŞILAŞTIRMA (PIPELINE SADIK VERSİYON)
+# =============================================================================
 with tab_comp:
-    st.header("🔄 Detaylı Model Karşılaştırması")
+    st.header("🔄 Pipeline Model Karşılaştırması")
+    st.info("Bu sekme, pipeline dosyanızdaki değişken eleme (drop_cols) ve Cross-Validation mantığını kullanır.")
     
-    if st.button("🚀 Tüm Modelleri Karşılaştır"):
-        with st.spinner("Modeller karşılaştırılıyor..."):
-            
-            # Veri hazırlığı (Model eğitimi sekmesindeki gibi)
-            # Conditional probabilities
-            probs_cat = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
-            df_eng_train_temp = df_eng_train.copy()
-            df_eng_test_temp = df_eng_test.copy()
-            
-            df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            probs_size = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
-            df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            probs_season = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
-            df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            df_eng_train_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"]
-            )
-            df_eng_test_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"]
-            )
-            
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "FREQUENCY_VALUE_NEW", "REL_FREQ_CLIMATE_NEW", "global_mean")
-            
-            drop_cols = [
-                'CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE',
-                'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE',
-                'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING',
-                'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED'
-            ]
-            
-            X_train_df_comp, X_test_df_comp = encode_train_test(df_eng_train_temp, df_eng_test_temp, drop_cols)
-            
-            y_train_comp = (df_eng_train_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            y_test_comp = (df_eng_test_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            
-            leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
-            leakage_cols = [c for c in X_train_df_comp.columns if c.startswith(leak_prefixes)]
-            
-            X_train_base_comp = X_train_df_comp.drop(columns=leakage_cols, errors="ignore")
-            X_test_base_comp = X_test_df_comp.drop(columns=leakage_cols, errors="ignore")
-            
-            rf_selector = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced")
-            rf_selector.fit(X_train_base_comp, y_train_comp)
-            
-            importances = pd.Series(rf_selector.feature_importances_, index=X_train_base_comp.columns).sort_values(ascending=False)
-            keep_cols = importances[importances >= 0.01].index.tolist()
-            
-            X_train_comp = X_train_base_comp[keep_cols]
-            X_test_comp = X_test_base_comp[keep_cols]
-            
-            scaler_comp = StandardScaler()
-            X_train_s_comp = scaler_comp.fit_transform(X_train_comp)
-            X_test_s_comp = scaler_comp.transform(X_test_comp)
-            
-            # Model karşılaştırma
-            models = {
-                'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
-                'Random Forest': RandomForestClassifier(n_estimators=200, max_depth=12, random_state=42, class_weight='balanced'),
-                'XGBoost': XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.1, random_state=42),
-                'LightGBM': LGBMClassifier(n_estimators=200, max_depth=8, learning_rate=0.1, random_state=42, verbose=-1)
-            }
-            
-            results = []
-            model_predictions = {}
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            for idx, (name, model) in enumerate(models.items()):
-                status_text.text(f"Eğitiliyor: {name}...")
-                
-                model.fit(X_train_s_comp, y_train_comp)
-                
-                if hasattr(model, 'predict_proba'):
-                    y_proba = model.predict_proba(X_test_s_comp)[:, 1]
-                else:
-                    y_proba = model.decision_function(X_test_s_comp)
-                
-                # Optimal threshold bulma
-                thresholds = np.linspace(0.05, 0.95, 19)
-                best_thr = 0.5
-                best_prec = 0
-                
-                for thr in thresholds:
-                    y_pred_temp = (y_proba >= thr).astype(int)
-                    rec = recall_score(y_test_comp, y_pred_temp, zero_division=0)
-                    prec = precision_score(y_test_comp, y_pred_temp, zero_division=0)
-                    if rec >= 0.80 and prec > best_prec:
-                        best_thr = thr
-                        best_prec = prec
-                
-                y_pred = (y_proba >= best_thr).astype(int)
-                
-                acc = accuracy_score(y_test_comp, y_pred)
-                prec = precision_score(y_test_comp, y_pred, zero_division=0)
-                rec = recall_score(y_test_comp, y_pred, zero_division=0)
-                f1 = f1_score(y_test_comp, y_pred, zero_division=0)
-                roc_auc = roc_auc_score(y_test_comp, y_proba)
-                
-                results.append({
-                    'Model': name,
-                    'Accuracy': acc,
-                    'Precision': prec,
-                    'Recall': rec,
-                    'F1-Score': f1,
-                    'ROC-AUC': roc_auc,
-                    'Threshold': best_thr
-                })
-                
-                model_predictions[name] = {
-                    'y_proba': y_proba,
-                    'y_pred': y_pred,
-                    'threshold': best_thr
-                }
-                
-                progress_bar.progress((idx + 1) / len(models))
-            
-            status_text.text("✅ Tüm modeller karşılaştırıldı!")
-            st.session_state['comparison_results'] = results
-            st.session_state['comparison_predictions'] = model_predictions
-            st.session_state['y_test_comp'] = y_test_comp
+    if st.button("Pipeline Modellerini Yarıştır"):
+        # Pipeline'daki değişken eleme listesi
+        drop_cols_pipeline = [
+            'CUSTOMER_ID', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE', 
+            'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE', 
+            'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING', 
+            'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED', 'SUBSCRIPTION_STATUS'
+        ]
         
-        st.success("Karşılaştırma tamamlandı!")
-    
-    if 'comparison_results' in st.session_state and st.session_state['comparison_results']:
-        results_df = pd.DataFrame(st.session_state['comparison_results'])
+        # Veri Hazırlığı
+        y = (df_eng["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+        X = df_eng.drop(columns=[c for c in drop_cols_pipeline if c in df_eng.columns])
         
-        st.subheader("📊 Model Performans Tablosu")
-        st.dataframe(results_df.style.background_gradient(cmap='RdYlGn', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']).format({
-            'Accuracy': '{:.4f}',
-            'Precision': '{:.4f}',
-            'Recall': '{:.4f}',
-            'F1-Score': '{:.4f}',
-            'ROC-AUC': '{:.4f}',
-            'Threshold': '{:.2f}'
-        }))
+        # One-Hot Encoding (Pipeline stili)
+        X_encoded = pd.get_dummies(X, drop_first=True)
         
-        best_model_name = results_df.loc[results_df['F1-Score'].idxmax(), 'Model']
-        st.success(f"🏆 **En İyi Model (F1-Score):** {best_model_name}")
+        # Modeller
+        models = [
+            ('LogisticRegression', LogisticRegression(max_iter=1000, random_state=42)),
+            ('RandomForest', RandomForestClassifier(random_state=42)),
+            ('XGBoost', XGBClassifier(random_state=42, eval_metric='logloss')),
+            ('LightGBM', LGBMClassifier(random_state=42, verbosity=-1))
+        ]
         
-        st.divider()
+        results = []
+        names = []
         
-        # Karşılaştırma grafikleri
-        st.subheader("📈 Model Karşılaştırma Grafikleri")
-        
-        col_c1, col_c2 = st.columns(2)
-        
-        with col_c1:
-            st.markdown("**Metrik Karşılaştırması**")
-            fig_comp1, ax_comp1 = plt.subplots(figsize=(10, 6))
-            metrics_to_plot = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
-            x = np.arange(len(results_df['Model']))
-            width = 0.15
+        for name, model in models:
+            # Pipeline'daki gibi CV Skorları
+            cv_scores = cross_val_score(model, X_encoded, y, cv=5, scoring="roc_auc")
+            results.append(cv_scores)
+            names.append(name)
             
-            for i, metric in enumerate(metrics_to_plot):
-                ax_comp1.bar(x + i*width, results_df[metric], width, label=metric)
-            
-            ax_comp1.set_xlabel('Model')
-            ax_comp1.set_ylabel('Score')
-            ax_comp1.set_title('Model Performance Comparison')
-            ax_comp1.set_xticks(x + width * 2)
-            ax_comp1.set_xticklabels(results_df['Model'], rotation=45, ha='right')
-            ax_comp1.legend()
-            ax_comp1.grid(True, alpha=0.3, axis='y')
-            plt.tight_layout()
-            st.pyplot(fig_comp1)
+        # Görselleştirme
+        fig_comp, ax_comp = plt.subplots(figsize=(10, 5))
+        sns.boxplot(x=names, y=results, palette="Set3", ax=ax_comp)
+        ax_comp.set_title("Pipeline Modelleri ROC-AUC Kıyaslaması")
+        st.pyplot(fig_comp)
         
-        with col_c2:
-            st.markdown("**ROC Curves Karşılaştırması**")
-            fig_roc_comp, ax_roc_comp = plt.subplots(figsize=(10, 6))
-            
-            for name, preds in st.session_state['comparison_predictions'].items():
-                fpr, tpr, _ = roc_curve(st.session_state['y_test_comp'], preds['y_proba'])
-                roc_auc_val = auc(fpr, tpr)
-                ax_roc_comp.plot(fpr, tpr, lw=2, label=f'{name} (AUC = {roc_auc_val:.2f})')
-            
-            ax_roc_comp.plot([0, 1], [0, 1], 'k--', lw=2, label='Random')
-            ax_roc_comp.set_xlabel('False Positive Rate')
-            ax_roc_comp.set_ylabel('True Positive Rate')
-            ax_roc_comp.set_title('ROC Curves Comparison')
-            ax_roc_comp.legend(loc='lower right')
-            ax_roc_comp.grid(True, alpha=0.3)
-            st.pyplot(fig_roc_comp)
+        # Özet Tablo
+        summary = pd.DataFrame({
+            "Model": names,
+            "Ortalama ROC-AUC": [res.mean() for res in results],
+            "Standart Sapma": [res.std() for res in results]
+        }).sort_values("Ortalama ROC-AUC", ascending=False)
         
-        # Confusion Matrices
-        st.subheader("🎯 Confusion Matrices")
-        
-        num_models = len(st.session_state['comparison_predictions'])
-        cols_cm = st.columns(num_models)
-        
-        for idx, (name, preds) in enumerate(st.session_state['comparison_predictions'].items()):
-            with cols_cm[idx]:
-                st.markdown(f"**{name}**")
-                cm = confusion_matrix(st.session_state['y_test_comp'], preds['y_pred'])
-                fig_cm_small, ax_cm_small = plt.subplots(figsize=(4, 3))
-                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm_small,
-                           xticklabels=['No', 'Yes'], yticklabels=['No', 'Yes'], cbar=False)
-                ax_cm_small.set_xlabel('Pred')
-                ax_cm_small.set_ylabel('True')
-                st.pyplot(fig_cm_small)
-    else:
-        st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
-    
-    # Threshold analysis (eğer model eğitildiyse)
-    if 'final_model' in st.session_state and st.session_state['final_model'] is not None:
-        if 'y_proba_test' in st.session_state:
-            st.divider()
-            st.subheader("📈 Aktif Model Threshold Analizi")
-            
-            y_proba = st.session_state['y_proba_test']
-            y_test = st.session_state['y_test']
-            
-            thresholds = np.linspace(0.05, 0.95, 19)
-            threshold_results = []
-            
-            for thr in thresholds:
-                y_pred_thr = (y_proba >= thr).astype(int)
-                threshold_results.append({
-                    'Threshold': thr,
-                    'Precision': precision_score(y_test, y_pred_thr, zero_division=0),
-                    'Recall': recall_score(y_test, y_pred_thr, zero_division=0),
-                    'F1-Score': f1_score(y_test, y_pred_thr, zero_division=0)
-                })
-            
-            thr_df = pd.DataFrame(threshold_results)
-            
-            fig_thr, ax_thr = plt.subplots(figsize=(12, 6))
-            ax_thr.plot(thr_df['Threshold'], thr_df['Precision'], 'b-o', label='Precision', linewidth=2)
-            ax_thr.plot(thr_df['Threshold'], thr_df['Recall'], 'r-s', label='Recall', linewidth=2)
-            ax_thr.plot(thr_df['Threshold'], thr_df['F1-Score'], 'g-^', label='F1-Score', linewidth=2)
-            ax_thr.axvline(st.session_state['best_threshold'], color='orange', linestyle='--', linewidth=2, 
-                          label=f"Optimal: {st.session_state['best_threshold']:.2f}")
-            ax_thr.set_xlabel('Threshold')
-            ax_thr.set_ylabel('Score')
-            ax_thr.set_title('Threshold vs Performance Metrics')
-            ax_thr.legend()
-            ax_thr.grid(True, alpha=0.3)
-            st.pyplot(fig_thr)
-
+        st.table(summary)
 # =============================================================================
 # TAB 5: CRM ANALİZİ
 # =============================================================================
