@@ -52,47 +52,14 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik Bölümü
-# 1. EN ÜSTE EKLE (Importlar arasına)
-# 1. EN ÜSTE EKLE (Importlar arasına)
-import streamlit.components.v1 as components
-
-# ... (mevcut kodların) ...
-
-# 2. SIDEBAR BÖLÜMÜNE EKLE
+# Müzik
 st.sidebar.markdown("---")
+def fallback_audio():
+    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+    st.sidebar.audio(url)
+    st.sidebar.info("🎵 Müzik için Play'e basın")
 
-# Noel Ağacı
-st.sidebar.markdown("""
-    <div style="text-align: center;">
-        <h1 style="font-size: 70px; margin-bottom: 0px; filter: drop-shadow(0 0 10px #f4a261);">🎄</h1>
-        <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Otomatik Müzik Çalar (JavaScript Tetikleyici)
-audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
-
-components.html(
-    f"""
-    <audio id="christmasAudio" loop>
-        <source src="{audio_url}" type="audio/mp3">
-    </audio>
-    <script>
-        var audio = document.getElementById("christmasAudio");
-        audio.volume = 0.4;
-        
-        // Tarayıcı kısıtlamasını aşmak için: 
-        // Kullanıcı sayfada herhangi bir yere tıkladığı an müzik başlar.
-        window.parent.document.addEventListener('click', function() {{
-            audio.play();
-        }}, {{ once: true }});
-    </script>
-    """,
-    height=0,
-)
-
-st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere tıkladığınızda başlayacaktır.")
+fallback_audio()
 
 # Tema
 def apply_modern_christmas_theme():
@@ -963,15 +930,231 @@ with tab_model:
 with tab_comp:
     st.header("🔄 Detaylı Model Karşılaştırması")
     
-    if 'final_model' in st.session_state and st.session_state['final_model'] is not None:
-        st.success(f"✅ Aktif Model: {st.session_state.get('best_model_name', 'Bilinmiyor')}")
+    if st.button("🚀 Tüm Modelleri Karşılaştır"):
+        with st.spinner("Modeller karşılaştırılıyor..."):
+            
+            # Veri hazırlığı (Model eğitimi sekmesindeki gibi)
+            # Conditional probabilities
+            probs_cat = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
+            df_eng_train_temp = df_eng_train.copy()
+            df_eng_test_temp = df_eng_test.copy()
+            
+            df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
+            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
+            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            probs_size = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
+            df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
+            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
+            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            probs_season = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
+            df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
+            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
+            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            df_eng_train_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
+                df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] *
+                df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] *
+                df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"]
+            )
+            df_eng_test_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
+                df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] *
+                df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] *
+                df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"]
+            )
+            
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "FREQUENCY_VALUE_NEW", "REL_FREQ_CLIMATE_NEW", "global_mean")
+            
+            drop_cols = [
+                'CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE',
+                'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE',
+                'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING',
+                'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED'
+            ]
+            
+            X_train_df_comp, X_test_df_comp = encode_train_test(df_eng_train_temp, df_eng_test_temp, drop_cols)
+            
+            y_train_comp = (df_eng_train_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+            y_test_comp = (df_eng_test_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+            
+            leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
+            leakage_cols = [c for c in X_train_df_comp.columns if c.startswith(leak_prefixes)]
+            
+            X_train_base_comp = X_train_df_comp.drop(columns=leakage_cols, errors="ignore")
+            X_test_base_comp = X_test_df_comp.drop(columns=leakage_cols, errors="ignore")
+            
+            rf_selector = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced")
+            rf_selector.fit(X_train_base_comp, y_train_comp)
+            
+            importances = pd.Series(rf_selector.feature_importances_, index=X_train_base_comp.columns).sort_values(ascending=False)
+            keep_cols = importances[importances >= 0.01].index.tolist()
+            
+            X_train_comp = X_train_base_comp[keep_cols]
+            X_test_comp = X_test_base_comp[keep_cols]
+            
+            scaler_comp = StandardScaler()
+            X_train_s_comp = scaler_comp.fit_transform(X_train_comp)
+            X_test_s_comp = scaler_comp.transform(X_test_comp)
+            
+            # Model karşılaştırma
+            models = {
+                'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
+                'Random Forest': RandomForestClassifier(n_estimators=200, max_depth=12, random_state=42, class_weight='balanced'),
+                'XGBoost': XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.1, random_state=42),
+                'LightGBM': LGBMClassifier(n_estimators=200, max_depth=8, learning_rate=0.1, random_state=42, verbose=-1)
+            }
+            
+            results = []
+            model_predictions = {}
+            
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for idx, (name, model) in enumerate(models.items()):
+                status_text.text(f"Eğitiliyor: {name}...")
+                
+                model.fit(X_train_s_comp, y_train_comp)
+                
+                if hasattr(model, 'predict_proba'):
+                    y_proba = model.predict_proba(X_test_s_comp)[:, 1]
+                else:
+                    y_proba = model.decision_function(X_test_s_comp)
+                
+                # Optimal threshold bulma
+                thresholds = np.linspace(0.05, 0.95, 19)
+                best_thr = 0.5
+                best_prec = 0
+                
+                for thr in thresholds:
+                    y_pred_temp = (y_proba >= thr).astype(int)
+                    rec = recall_score(y_test_comp, y_pred_temp, zero_division=0)
+                    prec = precision_score(y_test_comp, y_pred_temp, zero_division=0)
+                    if rec >= 0.80 and prec > best_prec:
+                        best_thr = thr
+                        best_prec = prec
+                
+                y_pred = (y_proba >= best_thr).astype(int)
+                
+                acc = accuracy_score(y_test_comp, y_pred)
+                prec = precision_score(y_test_comp, y_pred, zero_division=0)
+                rec = recall_score(y_test_comp, y_pred, zero_division=0)
+                f1 = f1_score(y_test_comp, y_pred, zero_division=0)
+                roc_auc = roc_auc_score(y_test_comp, y_proba)
+                
+                results.append({
+                    'Model': name,
+                    'Accuracy': acc,
+                    'Precision': prec,
+                    'Recall': rec,
+                    'F1-Score': f1,
+                    'ROC-AUC': roc_auc,
+                    'Threshold': best_thr
+                })
+                
+                model_predictions[name] = {
+                    'y_proba': y_proba,
+                    'y_pred': y_pred,
+                    'threshold': best_thr
+                }
+                
+                progress_bar.progress((idx + 1) / len(models))
+            
+            status_text.text("✅ Tüm modeller karşılaştırıldı!")
+            st.session_state['comparison_results'] = results
+            st.session_state['comparison_predictions'] = model_predictions
+            st.session_state['y_test_comp'] = y_test_comp
         
+        st.success("Karşılaştırma tamamlandı!")
+    
+    if 'comparison_results' in st.session_state and st.session_state['comparison_results']:
+        results_df = pd.DataFrame(st.session_state['comparison_results'])
+        
+        st.subheader("📊 Model Performans Tablosu")
+        st.dataframe(results_df.style.background_gradient(cmap='RdYlGn', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']).format({
+            'Accuracy': '{:.4f}',
+            'Precision': '{:.4f}',
+            'Recall': '{:.4f}',
+            'F1-Score': '{:.4f}',
+            'ROC-AUC': '{:.4f}',
+            'Threshold': '{:.2f}'
+        }))
+        
+        best_model_name = results_df.loc[results_df['F1-Score'].idxmax(), 'Model']
+        st.success(f"🏆 **En İyi Model (F1-Score):** {best_model_name}")
+        
+        st.divider()
+        
+        # Karşılaştırma grafikleri
+        st.subheader("📈 Model Karşılaştırma Grafikleri")
+        
+        col_c1, col_c2 = st.columns(2)
+        
+        with col_c1:
+            st.markdown("**Metrik Karşılaştırması**")
+            fig_comp1, ax_comp1 = plt.subplots(figsize=(10, 6))
+            metrics_to_plot = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
+            x = np.arange(len(results_df['Model']))
+            width = 0.15
+            
+            for i, metric in enumerate(metrics_to_plot):
+                ax_comp1.bar(x + i*width, results_df[metric], width, label=metric)
+            
+            ax_comp1.set_xlabel('Model')
+            ax_comp1.set_ylabel('Score')
+            ax_comp1.set_title('Model Performance Comparison')
+            ax_comp1.set_xticks(x + width * 2)
+            ax_comp1.set_xticklabels(results_df['Model'], rotation=45, ha='right')
+            ax_comp1.legend()
+            ax_comp1.grid(True, alpha=0.3, axis='y')
+            plt.tight_layout()
+            st.pyplot(fig_comp1)
+        
+        with col_c2:
+            st.markdown("**ROC Curves Karşılaştırması**")
+            fig_roc_comp, ax_roc_comp = plt.subplots(figsize=(10, 6))
+            
+            for name, preds in st.session_state['comparison_predictions'].items():
+                fpr, tpr, _ = roc_curve(st.session_state['y_test_comp'], preds['y_proba'])
+                roc_auc_val = auc(fpr, tpr)
+                ax_roc_comp.plot(fpr, tpr, lw=2, label=f'{name} (AUC = {roc_auc_val:.2f})')
+            
+            ax_roc_comp.plot([0, 1], [0, 1], 'k--', lw=2, label='Random')
+            ax_roc_comp.set_xlabel('False Positive Rate')
+            ax_roc_comp.set_ylabel('True Positive Rate')
+            ax_roc_comp.set_title('ROC Curves Comparison')
+            ax_roc_comp.legend(loc='lower right')
+            ax_roc_comp.grid(True, alpha=0.3)
+            st.pyplot(fig_roc_comp)
+        
+        # Confusion Matrices
+        st.subheader("🎯 Confusion Matrices")
+        cols_cm = st.columns(len(models))
+        
+        for idx, (name, preds) in enumerate(st.session_state['comparison_predictions'].items()):
+            with cols_cm[idx]:
+                st.markdown(f"**{name}**")
+                cm = confusion_matrix(st.session_state['y_test_comp'], preds['y_pred'])
+                fig_cm_small, ax_cm_small = plt.subplots(figsize=(4, 3))
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm_small,
+                           xticklabels=['No', 'Yes'], yticklabels=['No', 'Yes'], cbar=False)
+                ax_cm_small.set_xlabel('Pred')
+                ax_cm_small.set_ylabel('True')
+                st.pyplot(fig_cm_small)
+    else:
+        st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
+    
+    # Threshold analysis (eğer model eğitildiyse)
+    if 'final_model' in st.session_state and st.session_state['final_model'] is not None:
         if 'y_proba_test' in st.session_state:
+            st.divider()
+            st.subheader("📈 Aktif Model Threshold Analizi")
+            
             y_proba = st.session_state['y_proba_test']
             y_test = st.session_state['y_test']
-            
-            # Threshold analysis
-            st.subheader("📈 Threshold Analizi")
             
             thresholds = np.linspace(0.05, 0.95, 19)
             threshold_results = []
@@ -999,15 +1182,6 @@ with tab_comp:
             ax_thr.legend()
             ax_thr.grid(True, alpha=0.3)
             st.pyplot(fig_thr)
-            
-            st.dataframe(thr_df.style.background_gradient(cmap='RdYlGn').format({
-                'Threshold': '{:.2f}',
-                'Precision': '{:.3f}',
-                'Recall': '{:.3f}',
-                'F1-Score': '{:.3f}'
-            }))
-    else:
-        st.warning("⚠️ Önce 'Model Eğitimi' sekmesinden modeli eğitmelisiniz.")
 
 # =============================================================================
 # TAB 5: CRM ANALİZİ
@@ -1135,74 +1309,89 @@ with tab_sim:
         
         if btn:
             try:
-                # Yeni müşteri verisi oluştur
-                input_row = pd.DataFrame({
-                    'CUSTOMER_ID': [999999],
-                    'AGE': [age], 'GENDER': [gender], 'ITEM_PURCHASED': [item],
-                    'CATEGORY': [cat], 'PURCHASE_AMOUNT_(USD)': [spend],
-                    'LOCATION': [loc], 'SIZE': [size], 'COLOR': [color],
-                    'SEASON': [season], 'REVIEW_RATING': [rating],
-                    'SHIPPING_TYPE': [ship], 'DISCOUNT_APPLIED': ['No'],
-                    'PROMO_CODE_USED': [promo], 'PREVIOUS_PURCHASES': [prev],
-                    'PAYMENT_METHOD': [pay], 'FREQUENCY_OF_PURCHASES': [freq],
-                    'SUBSCRIPTION_STATUS': ['No']
-                })
-                
-                # Feature engineering
-                input_processed = process_data_pipeline(input_row)
-                
-                # Basit feature'ları hazırla (leakage olmadan)
+                # Basitleştirilmiş feature'lar (qcut/cut kullanmadan)
                 freq_map = {'Weekly': 52, 'Bi-Weekly': 26, 'Fortnightly': 26, 'Quarterly': 4, 'Annually': 1, 'Monthly': 12, 'Every 3 Months': 4}
                 freq_val = freq_map.get(freq, 12)
                 
-                # Basitleştirilmiş feature seti
-                simple_features = pd.DataFrame({
-                    'TOTAL_SPEND_WEIGHTED_NEW': [prev * spend],
-                    'SPEND_PER_PURCHASE_NEW': [spend / (prev + 1)],
-                    'FREQUENCY_VALUE_NEW': [freq_val],
-                    'LOYALTY_SCORE_NEW': [1 if prev < 13 else (2 if prev < 25 else (3 if prev < 38 else 4))],
-                    'HIGH_REVIEW_RATING_NEW': [1 if rating >= 4 else 0],
-                    'SPEND_RATING_NEW': [spend * rating],
-                    'GENDER_Male': [1 if gender == 'Male' else 0],
-                    'CATEGORY_' + cat: [1],
-                })
+                total_spend = prev * spend
+                spend_per_purchase = spend / (prev + 1)
                 
-                # Model'in beklediği tüm kolonları ekle (eksikleri 0 ile doldur)
+                # Loyalty score basit hesaplama
+                if prev < 13:
+                    loyalty_score = 1
+                elif prev < 25:
+                    loyalty_score = 2
+                elif prev < 38:
+                    loyalty_score = 3
+                else:
+                    loyalty_score = 4
+                
+                # Basit feature dictionary
+                simple_features = {
+                    'TOTAL_SPEND_WEIGHTED_NEW': total_spend,
+                    'SPEND_PER_PURCHASE_NEW': spend_per_purchase,
+                    'FREQUENCY_VALUE_NEW': freq_val,
+                    'LOYALTY_SCORE_NEW': loyalty_score,
+                    'HIGH_REVIEW_RATING_NEW': 1 if rating >= 4 else 0,
+                    'SPEND_RATING_NEW': spend * rating,
+                    'PROMO_X_LOYALTY': (1 if promo == 'Yes' else 0) * loyalty_score,
+                    'PROMO_X_FREQ': (1 if promo == 'Yes' else 0) * freq_val
+                }
+                
+                # Gender encoding
+                if gender == 'Male':
+                    simple_features['GENDER_Male'] = 1
+                    simple_features['GENDER_Female'] = 0
+                else:
+                    simple_features['GENDER_Male'] = 0
+                    simple_features['GENDER_Female'] = 1
+                
+                # Category one-hot encoding
+                categories = df_raw['CATEGORY'].unique()
+                for category in categories:
+                    simple_features[f'CATEGORY_{category}'] = 1 if cat == category else 0
+                
+                # DataFrame oluştur
+                feature_df = pd.DataFrame([simple_features])
+                
+                # Model'in beklediği tüm kolonları ekle
                 X_columns = st.session_state['X_columns']
                 for col in X_columns:
-                    if col not in simple_features.columns:
-                        simple_features[col] = 0
+                    if col not in feature_df.columns:
+                        feature_df[col] = 0
                 
                 # Sıralamayı düzenle
-                simple_features = simple_features[X_columns]
+                feature_df = feature_df[X_columns]
                 
                 # Scale et
                 scaler_model = st.session_state['scaler_model']
-                user_scaled = scaler_model.transform(simple_features)
+                user_scaled = scaler_model.transform(feature_df)
                 
                 # Tahmin
                 final_model = st.session_state['final_model']
                 prob = final_model.predict_proba(user_scaled)[0][1]
                 
                 # Cluster tahmini
+                predicted_cluster = None
+                segment_name = "Bilinmiyor"
+                
                 if 'kmeans' in st.session_state and 'scaler_seg' in st.session_state:
-                    segmentation_features = [
-                        prev * spend,  # TOTAL_SPEND_WEIGHTED_NEW
-                        prev,          # PREVIOUS_PURCHASES
-                        freq_val,      # FREQUENCY_VALUE_NEW
-                        spend / (prev + 1),  # SPEND_PER_PURCHASE_NEW
-                        prev * spend   # TOTAL_SPEND_WEIGHTED_NEW (duplicate)
-                    ]
-                    
-                    user_seg_data = np.array(segmentation_features).reshape(1, -1)
-                    user_seg_scaled = st.session_state['scaler_seg'].transform(user_seg_data)
-                    predicted_cluster = st.session_state['kmeans'].predict(user_seg_scaled)[0]
-                    
-                    profile = st.session_state['profile']
-                    segment_name = profile.loc[predicted_cluster, 'Segment İsmi']
-                else:
-                    predicted_cluster = None
-                    segment_name = "Bilinmiyor"
+                    try:
+                        segmentation_features = np.array([[
+                            total_spend,      # TOTAL_SPEND_WEIGHTED_NEW
+                            prev,             # PREVIOUS_PURCHASES
+                            freq_val,         # FREQUENCY_VALUE_NEW
+                            spend_per_purchase,  # SPEND_PER_PURCHASE_NEW
+                            total_spend       # TOTAL_SPEND_WEIGHTED_NEW (tekrar)
+                        ]])
+                        
+                        user_seg_scaled = st.session_state['scaler_seg'].transform(segmentation_features)
+                        predicted_cluster = st.session_state['kmeans'].predict(user_seg_scaled)[0]
+                        
+                        profile = st.session_state['profile']
+                        segment_name = profile.loc[predicted_cluster, 'Segment İsmi']
+                    except Exception as e:
+                        st.warning(f"Cluster tahmini yapılamadı: {str(e)}")
                 
                 thr = st.session_state['best_threshold']
                 
@@ -1299,3 +1488,4 @@ with tab_sim:
             except Exception as e:
                 st.error(f"❌ Tahmin yapılırken hata oluştu: {str(e)}")
                 st.info("💡 Lütfen önce 'Model Eğitimi' sekmesinden modeli eğittiğinizden emin olun.")
+                st.code(f"Detay: {str(e)}")  # Debug için
