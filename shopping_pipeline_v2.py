@@ -533,12 +533,36 @@ with tab_seg:
         'Promo Kullanım Oranı (%)': '{:.1f}%'
     }))
     
-    # Cluster boyutları
-    st.subheader("📏 Segment Boyutları")
-    cluster_sizes = pd.DataFrame(df_report['Cluster'].value_counts().sort_index())
-    cluster_sizes.columns = ['Müşteri Sayısı']
-    cluster_sizes['Yüzde'] = (cluster_sizes['Müşteri Sayısı'] / cluster_sizes['Müşteri Sayısı'].sum() * 100).round(2)
-    st.dataframe(cluster_sizes.style.background_gradient(cmap='Greens'))
+    st.divider()
+    
+    # Abonelik İstatistikleri
+    st.subheader("📈 Abonelik İstatistikleri")
+    
+    stat_col1, stat_col2 = st.columns(2)
+    
+    with stat_col1:
+        st.markdown("**Promosyon Kullanımı vs Abonelik**")
+        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig_promo, ax_promo = plt.subplots(figsize=(8, 5))
+        promo_sub.plot(kind='bar', ax=ax_promo, color=['#d62828', '#28a745'], rot=0)
+        ax_promo.set_xlabel('Promosyon Kullanımı')
+        ax_promo.set_ylabel('Yüzde (%)')
+        ax_promo.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        ax_promo.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax_promo.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig_promo)
+    
+    with stat_col2:
+        st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
+        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig_gender, ax_gender = plt.subplots(figsize=(8, 5))
+        gender_sub.plot(kind='bar', ax=ax_gender, color=['#d62828', '#28a725'], rot=0)
+        ax_gender.set_xlabel('Cinsiyet')
+        ax_gender.set_ylabel('Yüzde (%)')
+        ax_gender.set_title('Cinsiyet Bazında Abonelik Dağılımı')
+        ax_gender.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax_gender.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig_gender)
     
     st.divider()
     
@@ -1053,7 +1077,7 @@ with tab_sim:
     st.header(f"🧪 Canlı Tahmin Simülatörü")
     
     if 'final_model' not in st.session_state or st.session_state['final_model'] is None:
-        st.warning("⚠️ Simülatörü kullanmak için önce modeli eğitmelisiniz.")
+        st.warning("⚠️ Simülatörü kullanmak için önce 'Model Eğitimi' sekmesinden modeli eğitmelisiniz.")
     else:
         with st.form("sim_form"):
             c1, c2, c3 = st.columns(3)
@@ -1077,16 +1101,168 @@ with tab_sim:
             btn = st.form_submit_button("🔮 Tahmin Et")
         
         if btn:
-            st.info("⚠️ Not: Simülatör tam pipeline ile çalışması için tüm conditional probability ve encoding işlemlerini içermelidir. Basitleştirilmiş bir tahmin yapılmaktadır.")
+            try:
+                # Yeni müşteri verisi oluştur
+                input_row = pd.DataFrame({
+                    'CUSTOMER_ID': [999999],
+                    'AGE': [age], 'GENDER': [gender], 'ITEM_PURCHASED': [item],
+                    'CATEGORY': [cat], 'PURCHASE_AMOUNT_(USD)': [spend],
+                    'LOCATION': [loc], 'SIZE': [size], 'COLOR': [color],
+                    'SEASON': [season], 'REVIEW_RATING': [rating],
+                    'SHIPPING_TYPE': [ship], 'DISCOUNT_APPLIED': ['No'],
+                    'PROMO_CODE_USED': [promo], 'PREVIOUS_PURCHASES': [prev],
+                    'PAYMENT_METHOD': [pay], 'FREQUENCY_OF_PURCHASES': [freq],
+                    'SUBSCRIPTION_STATUS': ['No']
+                })
+                
+                # Feature engineering
+                input_processed = process_data_pipeline(input_row)
+                
+                # Basit feature'ları hazırla (leakage olmadan)
+                freq_map = {'Weekly': 52, 'Bi-Weekly': 26, 'Fortnightly': 26, 'Quarterly': 4, 'Annually': 1, 'Monthly': 12, 'Every 3 Months': 4}
+                freq_val = freq_map.get(freq, 12)
+                
+                # Basitleştirilmiş feature seti
+                simple_features = pd.DataFrame({
+                    'TOTAL_SPEND_WEIGHTED_NEW': [prev * spend],
+                    'SPEND_PER_PURCHASE_NEW': [spend / (prev + 1)],
+                    'FREQUENCY_VALUE_NEW': [freq_val],
+                    'LOYALTY_SCORE_NEW': [1 if prev < 13 else (2 if prev < 25 else (3 if prev < 38 else 4))],
+                    'HIGH_REVIEW_RATING_NEW': [1 if rating >= 4 else 0],
+                    'SPEND_RATING_NEW': [spend * rating],
+                    'GENDER_Male': [1 if gender == 'Male' else 0],
+                    'CATEGORY_' + cat: [1],
+                })
+                
+                # Model'in beklediği tüm kolonları ekle (eksikleri 0 ile doldur)
+                X_columns = st.session_state['X_columns']
+                for col in X_columns:
+                    if col not in simple_features.columns:
+                        simple_features[col] = 0
+                
+                # Sıralamayı düzenle
+                simple_features = simple_features[X_columns]
+                
+                # Scale et
+                scaler_model = st.session_state['scaler_model']
+                user_scaled = scaler_model.transform(simple_features)
+                
+                # Tahmin
+                final_model = st.session_state['final_model']
+                prob = final_model.predict_proba(user_scaled)[0][1]
+                
+                # Cluster tahmini
+                if 'kmeans' in st.session_state and 'scaler_seg' in st.session_state:
+                    segmentation_features = [
+                        prev * spend,  # TOTAL_SPEND_WEIGHTED_NEW
+                        prev,          # PREVIOUS_PURCHASES
+                        freq_val,      # FREQUENCY_VALUE_NEW
+                        spend / (prev + 1),  # SPEND_PER_PURCHASE_NEW
+                        prev * spend   # TOTAL_SPEND_WEIGHTED_NEW (duplicate)
+                    ]
+                    
+                    user_seg_data = np.array(segmentation_features).reshape(1, -1)
+                    user_seg_scaled = st.session_state['scaler_seg'].transform(user_seg_data)
+                    predicted_cluster = st.session_state['kmeans'].predict(user_seg_scaled)[0]
+                    
+                    profile = st.session_state['profile']
+                    segment_name = profile.loc[predicted_cluster, 'Segment İsmi']
+                else:
+                    predicted_cluster = None
+                    segment_name = "Bilinmiyor"
+                
+                thr = st.session_state['best_threshold']
+                
+                st.divider()
+                
+                # 3 kolonlu layout
+                col_r1, col_r2, col_r3 = st.columns([1, 1, 1.5])
+                
+                with col_r1:
+                    st.subheader("🎯 Abonelik Tahmini")
+                    if prob >= thr:
+                        st.success(f"### ✅ ABONE OLUR")
+                        st.metric("İhtimal", f"%{prob*100:.1f}")
+                    else:
+                        st.error(f"### ❌ ABONE OLMAZ")
+                        st.metric("İhtimal", f"%{prob*100:.1f}")
+                    
+                    st.caption(f"Threshold: %{thr*100:.0f}")
+                    st.progress(prob)
+                
+                with col_r2:
+                    st.subheader("🧩 Segment Tahmini")
+                    if predicted_cluster is not None:
+                        st.info(f"### Cluster {predicted_cluster}")
+                        st.success(f"**{segment_name}**")
+                        
+                        # Cluster istatistikleri
+                        if 'segment_sub_rate' in st.session_state:
+                            segment_sub_rate = st.session_state['segment_sub_rate']
+                            if predicted_cluster in segment_sub_rate.index:
+                                cluster_info = segment_sub_rate.loc[predicted_cluster]
+                                st.metric("Segment Abonelik Oranı", f"{cluster_info['Abonelik Oranı']:.1f}%")
+                                st.metric("Segment Müşteri Sayısı", f"{cluster_info['Müşteri Sayısı']:.0f}")
+                    else:
+                        st.warning("Segment tahmini yapılamadı")
+                
+                with col_r3:
+                    st.subheader("📋 Müşteri Profili")
+                    profile_col1, profile_col2 = st.columns(2)
+                    
+                    with profile_col1:
+                        st.write(f"👤 **Yaş:** {age}")
+                        st.write(f"🚹🚺 **Cinsiyet:** {gender}")
+                        st.write(f"📍 **Lokasyon:** {loc}")
+                        st.write(f"🛒 **Kategori:** {cat}")
+                    
+                    with profile_col2:
+                        st.write(f"💰 **Harcama:** ${spend}")
+                        st.write(f"📦 **Geçmiş Alışveriş:** {prev}")
+                        st.write(f"🔄 **Sıklık:** {freq}")
+                        st.write(f"⭐ **Rating:** {rating}")
+                    
+                    st.write(f"🎁 **Promosyon:** {promo}")
+                
+                st.divider()
+                
+                # Segment karşılaştırması
+                if predicted_cluster is not None and 'segment_sub_rate' in st.session_state:
+                    st.subheader("📊 Segment Profili ve Öneriler")
+                    
+                    comp_col1, comp_col2 = st.columns(2)
+                    
+                    with comp_col1:
+                        st.markdown(f"**Cluster {predicted_cluster} ({segment_name}) Profili:**")
+                        segment_sub_rate = st.session_state['segment_sub_rate']
+                        if predicted_cluster in segment_sub_rate.index:
+                            cluster_profile = segment_sub_rate.loc[predicted_cluster]
+                            st.write(f"• Ortalama Harcama: ${cluster_profile['Ort. Harcama']:.2f}")
+                            st.write(f"• Ortalama Alışveriş: {cluster_profile['Ort. Alışveriş Sayısı']:.1f}")
+                            st.write(f"• Ortalama Rating: {cluster_profile['Ort. Rating']:.2f}")
+                            st.write(f"• Abonelik Oranı: {cluster_profile['Abonelik Oranı']:.1f}%")
+                    
+                    with comp_col2:
+                        st.markdown("**🎯 Öneriler:**")
+                        
+                        if predicted_cluster in segment_sub_rate.index:
+                            cluster_info = segment_sub_rate.loc[predicted_cluster]
+                            
+                            if cluster_info['Abonelik Oranı'] < 40:
+                                st.warning("⚠️ Bu segment düşük abonelik oranına sahip")
+                                st.write("💡 Agresif abonelik kampanyası uygulayın")
+                            elif cluster_info['Abonelik Oranı'] < 60:
+                                st.info("ℹ️ Orta düzey abonelik potansiyeli")
+                                st.write("💡 Kişiselleştirilmiş teklifler sunun")
+                            else:
+                                st.success("✅ Yüksek abonelik potansiyeli")
+                                st.write("💡 Sadakat programı ile uzun vadeli bağ kurun")
+                            
+                            if prob >= thr and cluster_info['Abonelik Oranı'] >= 50:
+                                st.success("🎉 Hem model hem de segment abone olma olasılığı yüksek!")
+                            elif prob < thr and cluster_info['Abonelik Oranı'] < 40:
+                                st.error("⚠️ Hem model hem de segment düşük abonelik gösteriyor - Dikkatli yaklaşın")
             
-            # Basit tahmin (tüm pipeline'ı çalıştırmak çok kompleks olduğu için)
-            st.success("✅ Tahmin yapılıyor...")
-            
-            st.markdown("""
-            **📋 Girilen Bilgiler:**
-            - Yaş: {} | Cinsiyet: {} | Harcama: ${}
-            - Geçmiş Alışveriş: {} | Sıklık: {} | Rating: {}
-            - Kategori: {} | Lokasyon: {} | Promosyon: {}
-            """.format(age, gender, spend, prev, freq, rating, cat, loc, promo))
-            
-            st.warning("⚠️ Tam pipeline entegrasyonu için yukarıdaki 'Model Eğitimi' sekmesinde detaylı işlemler yapılmaktadır.")
+            except Exception as e:
+                st.error(f"❌ Tahmin yapılırken hata oluştu: {str(e)}")
+                st.info("💡 Lütfen önce 'Model Eğitimi' sekmesinden modeli eğittiğinizden emin olun.")
