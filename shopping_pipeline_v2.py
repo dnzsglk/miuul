@@ -1340,13 +1340,26 @@ with tab_crm:
         
         crm_summary.columns = ['n_customers', 'crm_target_rate', 'avg_spend', 'avg_prev_purchases', 'avg_freq', 'promo_rate']
         
-        # CRM Aksiyon Belirleme Fonksiyonu
+        # CRM Aksiyon Belirleme Fonksiyonu (Dinamik Eşikler)
+        # Percentile bazlı sınıflandırma
+        spend_median = crm_summary["avg_spend"].median()
+        target_p75 = crm_summary["crm_target_rate"].quantile(0.75)
+        target_p50 = crm_summary["crm_target_rate"].quantile(0.50)
+        target_p25 = crm_summary["crm_target_rate"].quantile(0.25)
+        
         def crm_action(row):
-            if row["crm_target_rate"] >= 0.6 and row["avg_spend"] >= crm_summary["avg_spend"].median():
+            # Yüksek abonelik oranı + Yüksek harcama = Premium segment
+            if row["crm_target_rate"] >= target_p75 and row["avg_spend"] >= spend_median:
                 return "Upsell / Premium teklif"
-            if row["crm_target_rate"] >= 0.4:
+            # Yüksek abonelik oranı ama düşük harcama = Potansiyel
+            elif row["crm_target_rate"] >= target_p75:
+                return "Quick win / light incentive"
+            # Orta abonelik oranı = Nurture
+            elif row["crm_target_rate"] >= target_p50:
                 return "Nurture / içerik + reminder"
-            return "Winback / agresif promosyon"
+            # Düşük abonelik oranı = Risk/Winback
+            else:
+                return "Winback / agresif promosyon"
         
         crm_summary['action'] = crm_summary.apply(crm_action, axis=1)
         
@@ -1373,6 +1386,9 @@ with tab_crm:
         crm_summary_display['Abonelik Oranı'] = (crm_summary_display['Abonelik Oranı'] * 100).round(1)
         crm_summary_display['Promo Kullanım'] = (crm_summary_display['Promo Kullanım'] * 100).round(1)
         
+        # Abonelik oranına göre sırala (yüksekten düşüğe)
+        crm_summary_display = crm_summary_display.sort_values('Abonelik Oranı', ascending=False)
+        
         st.dataframe(crm_summary_display.style.background_gradient(
             cmap='RdYlGn', 
             subset=['Abonelik Oranı', 'Ort. Harcama']
@@ -1384,6 +1400,15 @@ with tab_crm:
             'Promo Kullanım': '{:.1f}%'
         }))
         
+        # İstatistik bilgileri
+        st.info(f"""
+        📊 **CRM Eşik Değerleri:**
+        - Premium Segment Eşiği: Abonelik ≥ %{target_p75*100:.1f} VE Harcama ≥ ${spend_median:.2f}
+        - Quick Win Eşiği: Abonelik ≥ %{target_p75*100:.1f}
+        - Nurture Eşiği: Abonelik ≥ %{target_p50*100:.1f}
+        - Winback: Abonelik < %{target_p50*100:.1f}
+        """)
+        
         st.divider()
         
         # Aksiyon Öncelik Grafiği
@@ -1394,6 +1419,7 @@ with tab_crm:
         # Scatter plot: X = Abonelik Oranı, Y = Ortalama Harcama
         colors_map = {
             'Upsell / Premium teklif': '#28a745',
+            'Quick win / light incentive': '#17a2b8',
             'Nurture / içerik + reminder': '#ffc107',
             'Winback / agresif promosyon': '#dc3545'
         }
@@ -1403,7 +1429,7 @@ with tab_crm:
             ax_matrix.scatter(
                 crm_summary[mask]['crm_target_rate'] * 100,
                 crm_summary[mask]['avg_spend'],
-                s=crm_summary[mask]['n_customers'] * 2,  # Müşteri sayısına göre boyut
+                s=crm_summary[mask]['n_customers'] * 2,
                 c=colors_map.get(action, '#999999'),
                 label=action,
                 alpha=0.6,
@@ -1411,16 +1437,20 @@ with tab_crm:
                 linewidth=2
             )
         
-        # Eşik çizgileri
-        ax_matrix.axvline(60, color='green', linestyle='--', linewidth=1, alpha=0.5, label='%60 Abonelik Eşiği')
-        ax_matrix.axvline(40, color='orange', linestyle='--', linewidth=1, alpha=0.5, label='%40 Abonelik Eşiği')
-        ax_matrix.axhline(crm_summary['avg_spend'].median(), color='blue', linestyle='--', linewidth=1, alpha=0.5, label='Medyan Harcama')
+        # Eşik çizgileri (percentile bazlı)
+        ax_matrix.axvline(target_p75 * 100, color='green', linestyle='--', linewidth=1.5, alpha=0.6, 
+                         label=f'P75 Abonelik: {target_p75*100:.1f}%')
+        ax_matrix.axvline(target_p50 * 100, color='orange', linestyle='--', linewidth=1.5, alpha=0.6, 
+                         label=f'P50 Abonelik: {target_p50*100:.1f}%')
+        ax_matrix.axhline(spend_median, color='blue', linestyle='--', linewidth=1.5, alpha=0.6, 
+                         label=f'Medyan Harcama: ${spend_median:.2f}')
         
         ax_matrix.set_xlabel('Abonelik Oranı (%)', fontsize=12)
         ax_matrix.set_ylabel('Ortalama Harcama ($)', fontsize=12)
         ax_matrix.set_title('CRM Aksiyon Öncelik Matrisi (Balon Boyutu = Müşteri Sayısı)', fontsize=14)
-        ax_matrix.legend(loc='best')
+        ax_matrix.legend(loc='best', fontsize=9)
         ax_matrix.grid(True, alpha=0.3)
+        plt.tight_layout()
         st.pyplot(fig_matrix)
         
         st.divider()
@@ -1431,6 +1461,7 @@ with tab_crm:
         # Aksiyon türüne göre gruplama
         action_groups = {
             'Upsell / Premium teklif': '🟢 Yüksek Değerli - Premium Odaklı',
+            'Quick win / light incentive': '🔵 Hızlı Kazanım - Hafif Teşvik',
             'Nurture / içerik + reminder': '🟡 Gelişim Potansiyeli - Eğitim Odaklı',
             'Winback / agresif promosyon': '🔴 Risk Altında - Kazanım Odaklı'
         }
@@ -1468,48 +1499,64 @@ with tab_crm:
                             st.write("• Exclusive ürün erişimi ve erken lansman duyuruları")
                             st.write("• Kişiselleştirilmiş alışveriş deneyimi")
                             st.write("• Ücretsiz premium kargo ve öncelikli müşteri hizmetleri")
+                        
+                        elif action_type == 'Quick win / light incentive':
+                            st.info("ℹ️ **Hızlı Kazanım Stratejisi**")
+                            st.write("• Hafif teşvikler ile abonelik tamamlama oranını artır")
+                            st.write("• İlk ay %15-20 indirim gibi düşük maliyetli kampanyalar")
+                            st.write("• Abonelik avantajlarını vurgulayan email serisi")
+                            st.write("• Sadakat puanı bonusu ile motivasyon artır")
                             
                         elif action_type == 'Nurture / içerik + reminder':
-                            st.info("ℹ️ **Gelişim Stratejisi**")
+                            st.warning("⚠️ **Gelişim Stratejisi**")
                             st.write("• Eğitici içerik ve ürün kullanım rehberleri gönder")
                             st.write("• Düzenli e-mail kampanyaları ile engagement arttır")
                             st.write("• Sepet hatırlatıcıları ve kişiselleştirilmiş öneriler")
                             st.write("• Sınırlı süreli teklifler ve ilk alışveriş indirimleri")
                             
                         else:  # Winback
-                            st.warning("⚠️ **Geri Kazanım Stratejisi**")
+                            st.error("🔴 **Geri Kazanım Stratejisi**")
                             st.write("• Agresif promosyon kampanyaları (%40-50 indirim)")
                             st.write("• 'Seni özledik' mesajları ile kişisel iletişim")
                             st.write("• Müşteri memnuniyeti anketi ve geri bildirim toplama")
                             st.write("• Yeniden aktivasyon bonusu ve sadakat puanları")
                         
                         st.divider()
+            else:
+                st.info(f"ℹ️ {action_title} kategorisinde segment bulunmuyor.")
         
         st.divider()
         
         # Özet İstatistikler
         st.subheader("📈 CRM Strateji Özeti")
         
-        summary_col1, summary_col2, summary_col3 = st.columns(3)
+        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
         
         with summary_col1:
             premium_count = len(crm_summary[crm_summary['action'] == 'Upsell / Premium teklif'])
-            premium_customers = crm_summary[crm_summary['action'] == 'Upsell / Premium teklif']['n_customers'].sum()
-            st.success(f"**🟢 Premium Segment**")
+            premium_customers = crm_summary[crm_summary['action'] == 'Upsell / Premium teklif']['n_customers'].sum() if premium_count > 0 else 0
+            st.success(f"**🟢 Premium**")
             st.metric("Segment Sayısı", premium_count)
             st.metric("Toplam Müşteri", f"{premium_customers:.0f}")
         
         with summary_col2:
+            quick_count = len(crm_summary[crm_summary['action'] == 'Quick win / light incentive'])
+            quick_customers = crm_summary[crm_summary['action'] == 'Quick win / light incentive']['n_customers'].sum() if quick_count > 0 else 0
+            st.info(f"**🔵 Quick Win**")
+            st.metric("Segment Sayısı", quick_count)
+            st.metric("Toplam Müşteri", f"{quick_customers:.0f}")
+        
+        with summary_col3:
             nurture_count = len(crm_summary[crm_summary['action'] == 'Nurture / içerik + reminder'])
-            nurture_customers = crm_summary[crm_summary['action'] == 'Nurture / içerik + reminder']['n_customers'].sum()
-            st.info(f"**🟡 Gelişim Segment**")
+            nurture_customers = crm_summary[crm_summary['action'] == 'Nurture / içerik + reminder']['n_customers'].sum() if nurture_count > 0 else 0
+            st.warning(f"**🟡 Nurture**")
             st.metric("Segment Sayısı", nurture_count)
             st.metric("Toplam Müşteri", f"{nurture_customers:.0f}")
         
-        with summary_col3:
+        with summary_col4:
             winback_count = len(crm_summary[crm_summary['action'] == 'Winback / agresif promosyon'])
-            winback_customers = crm_summary[crm_summary['action'] == 'Winback / agresif promosyon']['n_customers'].sum()
-            st.warning(f"**🔴 Risk Segment**")
+            winback_customers = crm_summary[crm_summary['action'] == 'Winback / agresif promosyon']['n_customers'].sum() if winback_count > 0 else 0
+            st.error(f"**🔴 Winback**")
             st.metric("Segment Sayısı", winback_count)
             st.metric("Toplam Müşteri", f"{winback_customers:.0f}")
     
