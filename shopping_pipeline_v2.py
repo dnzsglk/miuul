@@ -968,14 +968,14 @@ with tab_model:
 # TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
 # =============================================================================
-# TAB 4: MODEL KARŞILAŞTIRMA (PIPELINE SADIK VERSİYON)
+# TAB 4: MODEL KARŞILAŞTIRMA (HATA DÜZELTİLMİŞ & PIPELINE SADIK)
 # =============================================================================
 with tab_comp:
     st.header("🔄 Pipeline Model Karşılaştırması")
-    st.info("Bu sekme, pipeline dosyanızdaki değişken eleme (drop_cols) ve Cross-Validation mantığını kullanır.")
+    st.info("Bu sekme, pipeline dosyanızdaki değişken eleme ve Cross-Validation mantığını kullanır.")
     
     if st.button("Pipeline Modellerini Yarıştır"):
-        # Pipeline'daki değişken eleme listesi
+        # 1. Pipeline'daki birebir değişken eleme listesi
         drop_cols_pipeline = [
             'CUSTOMER_ID', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE', 
             'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE', 
@@ -983,14 +983,15 @@ with tab_comp:
             'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED', 'SUBSCRIPTION_STATUS'
         ]
         
-        # Veri Hazırlığı
+        # 2. Veri Hazırlığı
+        # Orijinal df_eng üzerinden pipeline temizliği yapıyoruz
         y = (df_eng["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
         X = df_eng.drop(columns=[c for c in drop_cols_pipeline if c in df_eng.columns])
         
-        # One-Hot Encoding (Pipeline stili)
+        # Kategorik değişkenleri encode et (Pipeline'daki get_dummies mantığı)
         X_encoded = pd.get_dummies(X, drop_first=True)
         
-        # Modeller
+        # 3. Modeller (Pipeline'daki parametrelerle)
         models = [
             ('LogisticRegression', LogisticRegression(max_iter=1000, random_state=42)),
             ('RandomForest', RandomForestClassifier(random_state=42)),
@@ -998,29 +999,31 @@ with tab_comp:
             ('LightGBM', LGBMClassifier(random_state=42, verbosity=-1))
         ]
         
-        results = []
-        names = []
+        all_results = []
         
+        # 4. Eğitim ve Çapraz Doğrulama
         for name, model in models:
-            # Pipeline'daki gibi CV Skorları
             cv_scores = cross_val_score(model, X_encoded, y, cv=5, scoring="roc_auc")
-            results.append(cv_scores)
-            names.append(name)
+            # Her bir fold sonucunu ayrı bir satır olarak kaydediyoruz (Hata burada çözülüyor)
+            for score in cv_scores:
+                all_results.append({"Model": name, "ROC-AUC": score})
+        
+        # Sonuçları DataFrame'e çeviriyoruz (Seaborn'un sevdiği format)
+        results_df = pd.DataFrame(all_results)
             
-        # Görselleştirme
-        fig_comp, ax_comp = plt.subplots(figsize=(10, 5))
-        sns.boxplot(x=names, y=results, palette="Set3", ax=ax_comp)
-        ax_comp.set_title("Pipeline Modelleri ROC-AUC Kıyaslaması")
+        # 5. Görselleştirme (Hata veren kısım düzeltildi)
+        fig_comp, ax_comp = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=results_df, x="Model", y="ROC-AUC", palette="Set3", ax=ax_comp)
+        ax_comp.set_title("Pipeline Modelleri ROC-AUC Kıyaslaması (5-Fold CV)")
         st.pyplot(fig_comp)
         
-        # Özet Tablo
-        summary = pd.DataFrame({
-            "Model": names,
-            "Ortalama ROC-AUC": [res.mean() for res in results],
-            "Standart Sapma": [res.std() for res in results]
-        }).sort_values("Ortalama ROC-AUC", ascending=False)
+        # 6. Özet Tablo
+        summary = results_df.groupby("Model")["ROC-AUC"].agg(["mean", "std"]).reset_index()
+        summary.columns = ["Model", "Ortalama ROC-AUC", "Standart Sapma"]
+        summary = summary.sort_values("Ortalama ROC-AUC", ascending=False)
         
         st.table(summary)
+        st.success(f"En iyi sonuç veren model: **{summary.iloc[0]['Model']}**")
 # =============================================================================
 # TAB 5: CRM ANALİZİ
 # =============================================================================
