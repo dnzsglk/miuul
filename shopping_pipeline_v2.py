@@ -52,14 +52,47 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik
-st.sidebar.markdown("---")
-def fallback_audio():
-    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
-    st.sidebar.audio(url)
-    st.sidebar.info("🎵 Müzik için Play'e basın")
+# Müzik Bölümü
+# 1. EN ÜSTE EKLE (Importlar arasına)
+# 1. EN ÜSTE EKLE (Importlar arasına)
+import streamlit.components.v1 as components
 
-fallback_audio()
+# ... (mevcut kodların) ...
+
+# 2. SIDEBAR BÖLÜMÜNE EKLE
+st.sidebar.markdown("---")
+
+# Noel Ağacı
+st.sidebar.markdown("""
+    <div style="text-align: center;">
+        <h1 style="font-size: 70px; margin-bottom: 0px; filter: drop-shadow(0 0 10px #f4a261);">🎄</h1>
+        <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Otomatik Müzik Çalar (JavaScript Tetikleyici)
+audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+
+components.html(
+    f"""
+    <audio id="christmasAudio" loop>
+        <source src="{audio_url}" type="audio/mp3">
+    </audio>
+    <script>
+        var audio = document.getElementById("christmasAudio");
+        audio.volume = 0.4;
+        
+        // Tarayıcı kısıtlamasını aşmak için: 
+        // Kullanıcı sayfada herhangi bir yere tıkladığı an müzik başlar.
+        window.parent.document.addEventListener('click', function() {{
+            audio.play();
+        }}, {{ once: true }});
+    </script>
+    """,
+    height=0,
+)
+
+st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere tıkladığınızda başlayacaktır.")
 
 # Tema
 def apply_modern_christmas_theme():
@@ -122,8 +155,7 @@ def apply_modern_christmas_theme():
         </style>
     """, unsafe_allow_html=True)
 
-apply_modern_christmas_theme()
-
+apply_modern_christmas_theme() 
 # =============================================================================
 # YARDIMCI FONKSİYONLAR
 # =============================================================================
