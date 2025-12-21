@@ -52,10 +52,22 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik
+# --- SIDEBAR SÜSLEMELERİ ---
 st.sidebar.markdown("---")
+
+# Noel Ağacı (Emoji ve Başlık)
+st.sidebar.markdown("""
+    <div style="text-align: center;">
+        <h1 style="font-size: 70px; margin-bottom: 0px;">🎄</h1>
+        <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Müzik Bölümü
 def fallback_audio():
     url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+    st.sidebar.write("") # Boşluk için
+    st.sidebar.markdown("<p style='text-align: center; color: #d62828;'>🎵 Arka Plan Müziği</p>", unsafe_allow_html=True)
     st.sidebar.audio(url)
     st.sidebar.info("🎵 Müzik için Play'e basın")
 
