@@ -52,9 +52,13 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik Bölümüimport streamlit.components.v1 as components
+# Müzik Bölümü
+# 1. EN ÜSTE EKLE (Importlar arasına)
+import streamlit.components.v1 as components
 
-# --- SIDEBAR SÜSLEMELERİ VE OTOMATİK MÜZİK ---
+# ... (mevcut kodların) ...
+
+# 2. SIDEBAR BÖLÜMÜNE EKLE
 st.sidebar.markdown("---")
 
 # Noel Ağacı
@@ -65,19 +69,21 @@ st.sidebar.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# Otomatik Müzik Çalar (JavaScript Hack)
+# Otomatik Müzik Çalar (JavaScript Tetikleyici)
 audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
 
 components.html(
     f"""
-    <audio id="myAudio" loop autoplay>
+    <audio id="christmasAudio" loop>
         <source src="{audio_url}" type="audio/mp3">
     </audio>
     <script>
-        var audio = document.getElementById("myAudio");
-        audio.volume = 0.5;
-        // Tarayıcı engeline karşı: Kullanıcı sayfada herhangi bir yere tıkladığında sesi başlat
-        document.body.addEventListener('click', function() {{
+        var audio = document.getElementById("christmasAudio");
+        audio.volume = 0.4;
+        
+        // Tarayıcı kısıtlamasını aşmak için: 
+        // Kullanıcı sayfada herhangi bir yere tıkladığı an müzik başlar.
+        window.parent.document.addEventListener('click', function() {{
             audio.play();
         }}, {{ once: true }});
     </script>
@@ -85,7 +91,8 @@ components.html(
     height=0,
 )
 
-st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere ilk tıkladığınızda otomatik olarak başlayacaktır.")
+st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere tıkladığınızda başlayacaktır.")
+
 # Tema
 def apply_modern_christmas_theme():
     st.markdown("""
