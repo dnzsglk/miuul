@@ -52,35 +52,40 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik Bölümü
-# --- OTOMATİK MÜZİK VE NOEL AĞACI ---
-def add_sidebar_elements():
-    st.sidebar.markdown("---")
-    
-    # Noel Ağacı
-    st.sidebar.markdown("""
-        <div style="text-align: center;">
-            <h1 style="font-size: 70px; margin-bottom: 0px; filter: drop-shadow(0 0 10px #f4a261);">🎄</h1>
-            <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
-        </div>
-        """, unsafe_allow_html=True)
+# Müzik Bölümüimport streamlit.components.v1 as components
 
-    # Otomatik Çalan Gizli Audio Bileşeni
-    audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
-    
-    st.sidebar.markdown(f"""
-        <iframe src="{audio_url}" allow="autoplay" style="display:none" id="iframeAudio">
-        </iframe>
-        <audio autoplay loop>
-            <source src="{audio_url}" type="audio/mp3">
-        </audio>
-        <p style='text-align: center; font-size: 0.8rem; color: #666;'>
-            🎵 Müzik otomatik başlamazsa sayfaya bir kez tıklayın.
-        </p>
-        """, unsafe_allow_html=True)
+# --- SIDEBAR SÜSLEMELERİ VE OTOMATİK MÜZİK ---
+st.sidebar.markdown("---")
 
-add_sidebar_elements()
+# Noel Ağacı
+st.sidebar.markdown("""
+    <div style="text-align: center;">
+        <h1 style="font-size: 70px; margin-bottom: 0px; filter: drop-shadow(0 0 10px #f4a261);">🎄</h1>
+        <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
+    </div>
+    """, unsafe_allow_html=True)
 
+# Otomatik Müzik Çalar (JavaScript Hack)
+audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+
+components.html(
+    f"""
+    <audio id="myAudio" loop autoplay>
+        <source src="{audio_url}" type="audio/mp3">
+    </audio>
+    <script>
+        var audio = document.getElementById("myAudio");
+        audio.volume = 0.5;
+        // Tarayıcı engeline karşı: Kullanıcı sayfada herhangi bir yere tıkladığında sesi başlat
+        document.body.addEventListener('click', function() {{
+            audio.play();
+        }}, {{ once: true }});
+    </script>
+    """,
+    height=0,
+)
+
+st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere ilk tıkladığınızda otomatik olarak başlayacaktır.")
 # Tema
 def apply_modern_christmas_theme():
     st.markdown("""
