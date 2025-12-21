@@ -431,6 +431,37 @@ with tab_eda:
         ax4.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig4)
 
+
+    # Abonelik İstatistikleri
+    st.subheader("📈 Abonelik İstatistikleri")
+    
+    stat_col1, stat_col2 = st.columns(2)
+    
+    with stat_col1:
+        st.markdown("**Promosyon Kullanımı vs Abonelik**")
+        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig_promo, ax_promo = plt.subplots(figsize=(8, 5))
+        promo_sub.plot(kind='bar', ax=ax_promo, color=['#d62828', '#28a745'], rot=0)
+        ax_promo.set_xlabel('Promosyon Kullanımı')
+        ax_promo.set_ylabel('Yüzde (%)')
+        ax_promo.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        ax_promo.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax_promo.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig_promo)
+    
+    with stat_col2:
+        st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
+        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig_gender, ax_gender = plt.subplots(figsize=(8, 5))
+        gender_sub.plot(kind='bar', ax=ax_gender, color=['#d62828', '#28a725'], rot=0)
+        ax_gender.set_xlabel('Cinsiyet')
+        ax_gender.set_ylabel('Yüzde (%)')
+        ax_gender.set_title('Cinsiyet Bazında Abonelik Dağılımı')
+        ax_gender.legend(title='Abonelik', labels=['No', 'Yes'])
+        ax_gender.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig_gender)
+    
+    st.divider()
 # =============================================================================
 # TAB 2: SEGMENTASYON (GÜNCELLENMİŞ)
 # =============================================================================
@@ -516,7 +547,6 @@ with tab_seg:
         st.pyplot(fig_3d)
 
     st.divider()
-    st.divider()
     
     # Segment profilleri
     df_report = df_eng.copy()
@@ -575,38 +605,7 @@ with tab_seg:
     }))
     
     st.divider()
-    
-    # Abonelik İstatistikleri
-    st.subheader("📈 Abonelik İstatistikleri")
-    
-    stat_col1, stat_col2 = st.columns(2)
-    
-    with stat_col1:
-        st.markdown("**Promosyon Kullanımı vs Abonelik**")
-        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        fig_promo, ax_promo = plt.subplots(figsize=(8, 5))
-        promo_sub.plot(kind='bar', ax=ax_promo, color=['#d62828', '#28a745'], rot=0)
-        ax_promo.set_xlabel('Promosyon Kullanımı')
-        ax_promo.set_ylabel('Yüzde (%)')
-        ax_promo.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax_promo.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax_promo.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig_promo)
-    
-    with stat_col2:
-        st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
-        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        fig_gender, ax_gender = plt.subplots(figsize=(8, 5))
-        gender_sub.plot(kind='bar', ax=ax_gender, color=['#d62828', '#28a725'], rot=0)
-        ax_gender.set_xlabel('Cinsiyet')
-        ax_gender.set_ylabel('Yüzde (%)')
-        ax_gender.set_title('Cinsiyet Bazında Abonelik Dağılımı')
-        ax_gender.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax_gender.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig_gender)
-    
-    st.divider()
-    
+        
     # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
     st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
     
