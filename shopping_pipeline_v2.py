@@ -1163,25 +1163,7 @@ with tab_comp:
             st.info(f"📈 **En İyi Model (ROC-AUC):** {best_auc_model}")
         
         st.divider()
-        
-        # ==================== THRESHOLD DETAYLARI ====================
-        st.subheader("🎯 Threshold Optimizasyon Detayları")
-        
-        if 'threshold_details' in st.session_state:
-            threshold_df = pd.DataFrame(st.session_state['threshold_details']).T
-            threshold_df = threshold_df.reset_index().rename(columns={'index': 'Model'})
-            
-            st.dataframe(threshold_df.style.background_gradient(cmap='YlGn', subset=['precision', 'recall', 'f1']).format({
-                'threshold': '{:.2f}',
-                'precision': '{:.4f}',
-                'recall': '{:.4f}',
-                'f1': '{:.4f}'
-            }))
-            
-            st.caption("ℹ️ Threshold'lar Recall ≥ 0.85 hedefine göre optimize edildi. Precision maksimize edildi.")
-        
-        st.divider()
-        
+             
         # ==================== KARŞILAŞTIRMA GRAFİKLERİ ====================
         st.subheader("📈 Model Karşılaştırma Grafikleri")
         
