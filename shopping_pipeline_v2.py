@@ -64,14 +64,33 @@ st.sidebar.markdown("""
     """, unsafe_allow_html=True)
 
 # Müzik Bölümü
-def fallback_audio():
-    url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
-    st.sidebar.write("") # Boşluk için
-    st.sidebar.markdown("<p style='text-align: center; color: #d62828;'>🎵 Arka Plan Müziği</p>", unsafe_allow_html=True)
-    st.sidebar.audio(url)
-    st.sidebar.info("🎵 Müzik için Play'e basın")
+# --- OTOMATİK MÜZİK VE NOEL AĞACI ---
+def add_sidebar_elements():
+    st.sidebar.markdown("---")
+    
+    # Noel Ağacı
+    st.sidebar.markdown("""
+        <div style="text-align: center;">
+            <h1 style="font-size: 70px; margin-bottom: 0px; filter: drop-shadow(0 0 10px #f4a261);">🎄</h1>
+            <h3 style="color: #f4a261; margin-top: 0px;">Mutlu Yıllar!</h3>
+        </div>
+        """, unsafe_allow_html=True)
 
-fallback_audio()
+    # Otomatik Çalan Gizli Audio Bileşeni
+    audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
+    
+    st.sidebar.markdown(f"""
+        <iframe src="{audio_url}" allow="autoplay" style="display:none" id="iframeAudio">
+        </iframe>
+        <audio autoplay loop>
+            <source src="{audio_url}" type="audio/mp3">
+        </audio>
+        <p style='text-align: center; font-size: 0.8rem; color: #666;'>
+            🎵 Müzik otomatik başlamazsa sayfaya bir kez tıklayın.
+        </p>
+        """, unsafe_allow_html=True)
+
+add_sidebar_elements()
 
 # Tema
 def apply_modern_christmas_theme():
