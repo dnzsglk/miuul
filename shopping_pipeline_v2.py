@@ -1041,7 +1041,7 @@ with tab_comp:
             
       
             # ==================== TEST PERFORMANSI (THRESHOLD OPTIMIZED) ====================
-            st.subheader("🎯 Test Seti Performansları"
+            st.subheader("🎯 Test Seti Performansları")
             
             # Her model için optimal threshold ile test
             results = []
