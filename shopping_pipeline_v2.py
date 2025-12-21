@@ -508,47 +508,51 @@ with tab_seg:
         st.pyplot(fig_pca)
     
     st.divider()
-    
     # PCA 3D Görselleştirme
-    st.subheader("🎨 3D Segment Görselleştirmesi")
-    
-    from mpl_toolkits.mplot3d import Axes3D
-    
-    pca3d = PCA(n_components=3)
-    comps3d = pca3d.fit_transform(X_scaled)
-    df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
-    df_pca3d["Cluster"] = clusters
-    
-    fig_3d = plt.figure(figsize=(14, 10))
-    ax_3d = fig_3d.add_subplot(111, projection='3d')
-    
-    scatter_3d = ax_3d.scatter(
-        df_pca3d["PC1"],
-        df_pca3d["PC2"],
-        df_pca3d["PC3"],
-        c=df_pca3d["Cluster"],
-        cmap="viridis",
-        s=70,
-        alpha=0.8,
-        edgecolors='w',
-        linewidth=0.5
-    )
-    
-    ax_3d.set_xlabel(f"PC1 ({pca3d.explained_variance_ratio_[0]*100:.1f}%)", fontsize=11)
-    ax_3d.set_ylabel(f"PC2 ({pca3d.explained_variance_ratio_[1]*100:.1f}%)", fontsize=11)
-    ax_3d.set_zlabel(f"PC3 ({pca3d.explained_variance_ratio_[2]*100:.1f}%)", fontsize=11)
-    ax_3d.set_title(f"Müşteri Segmentleri (PCA 3D - K={optimal_k})", fontsize=14, pad=20)
-    
-    legend_3d = ax_3d.legend(*scatter_3d.legend_elements(), title="Cluster", loc='upper left')
-    ax_3d.add_artist(legend_3d)
-    
-    # Toplam açıklanan varyans
-    total_var = pca3d.explained_variance_ratio_.sum()
-    ax_3d.text2D(0.05, 0.95, f'Toplam Varyans: {total_var*100:.1f}%', 
-                transform=ax_3d.transAxes, fontsize=10, 
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    
-    st.pyplot(fig_3d)
+st.subheader("🎨 3D Segment Görselleştirmesi")
+
+from mpl_toolkits.mplot3d import Axes3D
+
+pca3d = PCA(n_components=3)
+comps3d = pca3d.fit_transform(X_scaled)
+df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
+df_pca3d["Cluster"] = clusters
+
+# 🔽 FIGURE BOYUTU KÜÇÜLTÜLDÜ
+fig_3d = plt.figure(figsize=(10, 7))
+ax_3d = fig_3d.add_subplot(111, projection='3d')
+
+scatter_3d = ax_3d.scatter(
+    df_pca3d["PC1"],
+    df_pca3d["PC2"],
+    df_pca3d["PC3"],
+    c=df_pca3d["Cluster"],
+    cmap="viridis",
+    s=45,              # 🔽 nokta boyutu küçültüldü
+    alpha=0.75,
+    edgecolors='w',
+    linewidth=0.4
+)
+
+ax_3d.set_xlabel(f"PC1 ({pca3d.explained_variance_ratio_[0]*100:.1f}%)", fontsize=10)
+ax_3d.set_ylabel(f"PC2 ({pca3d.explained_variance_ratio_[1]*100:.1f}%)", fontsize=10)
+ax_3d.set_zlabel(f"PC3 ({pca3d.explained_variance_ratio_[2]*100:.1f}%)", fontsize=10)
+ax_3d.set_title(f"Müşteri Segmentleri (PCA 3D - K={optimal_k})", fontsize=13, pad=12)
+
+legend_3d = ax_3d.legend(*scatter_3d.legend_elements(), title="Cluster", loc='upper left')
+ax_3d.add_artist(legend_3d)
+
+total_var = pca3d.explained_variance_ratio_.sum()
+ax_3d.text2D(
+    0.03, 0.95,
+    f'Toplam Varyans: {total_var*100:.1f}%',
+    transform=ax_3d.transAxes,
+    fontsize=9,
+    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+)
+
+st.pyplot(fig_3d)
+
     
     # Varyans açıklaması
     var_col1, var_col2 = st.columns(2)
