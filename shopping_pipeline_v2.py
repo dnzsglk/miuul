@@ -54,6 +54,7 @@ st.markdown(f"""
 
 # Müzik Bölümü
 # 1. EN ÜSTE EKLE (Importlar arasına)
+# 1. EN ÜSTE EKLE (Importlar arasına)
 import streamlit.components.v1 as components
 
 # ... (mevcut kodların) ...
