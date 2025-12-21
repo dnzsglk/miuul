@@ -968,14 +968,14 @@ with tab_model:
 # TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
 # =============================================================================
-# TAB 4: MODEL KARŞILAŞTIRMA (HATA DÜZELTİLMİŞ & PIPELINE SADIK)
+# TAB 4: MODEL KARŞILAŞTIRMA (HATASIZ & PIPELINE İLE SENKRON)
 # =============================================================================
 with tab_comp:
     st.header("🔄 Pipeline Model Karşılaştırması")
-    st.info("Bu sekme, pipeline dosyanızdaki değişken eleme ve Cross-Validation mantığını kullanır.")
+    st.info("Pipeline dosyanızdaki değişken eleme stratejisi uygulanıyor (Linear model avantajı korunur).")
     
-    if st.button("Pipeline Modellerini Yarıştır"):
-        # 1. Pipeline'daki birebir değişken eleme listesi
+    if st.button("Pipeline Modellerini Çalıştır"):
+        # 1. Pipeline'daki 'Linear' başarısını getiren değişken eleme listesi
         drop_cols_pipeline = [
             'CUSTOMER_ID', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE', 
             'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE', 
@@ -984,14 +984,14 @@ with tab_comp:
         ]
         
         # 2. Veri Hazırlığı
-        # Orijinal df_eng üzerinden pipeline temizliği yapıyoruz
+        # df_eng içerisinden pipeline'ın istemediği kolonları temizliyoruz
         y = (df_eng["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
         X = df_eng.drop(columns=[c for c in drop_cols_pipeline if c in df_eng.columns])
         
-        # Kategorik değişkenleri encode et (Pipeline'daki get_dummies mantığı)
+        # Kategorik verileri sayısal verilere dönüştür (Pipeline stili)
         X_encoded = pd.get_dummies(X, drop_first=True)
         
-        # 3. Modeller (Pipeline'daki parametrelerle)
+        # 3. Modellerin Tanımlanması
         models = [
             ('LogisticRegression', LogisticRegression(max_iter=1000, random_state=42)),
             ('RandomForest', RandomForestClassifier(random_state=42)),
@@ -999,31 +999,45 @@ with tab_comp:
             ('LightGBM', LGBMClassifier(random_state=42, verbosity=-1))
         ]
         
-        all_results = []
+        # 4. Cross-Validation Döngüsü
+        model_names = []
+        cv_scores_list = []
         
-        # 4. Eğitim ve Çapraz Doğrulama
+        progress_text = st.empty()
         for name, model in models:
-            cv_scores = cross_val_score(model, X_encoded, y, cv=5, scoring="roc_auc")
-            # Her bir fold sonucunu ayrı bir satır olarak kaydediyoruz (Hata burada çözülüyor)
-            for score in cv_scores:
-                all_results.append({"Model": name, "ROC-AUC": score})
-        
-        # Sonuçları DataFrame'e çeviriyoruz (Seaborn'un sevdiği format)
-        results_df = pd.DataFrame(all_results)
+            progress_text.text(f"Eğitiliyor: {name}...")
+            scores = cross_val_score(model, X_encoded, y, cv=5, scoring="roc_auc")
             
-        # 5. Görselleştirme (Hata veren kısım düzeltildi)
-        fig_comp, ax_comp = plt.subplots(figsize=(10, 6))
-        sns.boxplot(data=results_df, x="Model", y="ROC-AUC", palette="Set3", ax=ax_comp)
-        ax_comp.set_title("Pipeline Modelleri ROC-AUC Kıyaslaması (5-Fold CV)")
-        st.pyplot(fig_comp)
+            # Boxplot hatasını önlemek için skorları tek tek ekliyoruz
+            for s in scores:
+                cv_scores_list.append(s)
+                model_names.append(name)
         
-        # 6. Özet Tablo
-        summary = results_df.groupby("Model")["ROC-AUC"].agg(["mean", "std"]).reset_index()
-        summary.columns = ["Model", "Ortalama ROC-AUC", "Standart Sapma"]
-        summary = summary.sort_values("Ortalama ROC-AUC", ascending=False)
+        progress_text.success("Tüm modeller eğitildi!")
+
+        # 5. DataFrame Oluşturma (Hata Payını Sıfıra İndirir)
+        results_df = pd.DataFrame({
+            'Model': model_names,
+            'ROC-AUC': cv_scores_list
+        })
         
-        st.table(summary)
-        st.success(f"En iyi sonuç veren model: **{summary.iloc[0]['Model']}**")
+        # 6. Görselleştirme
+        col_res1, col_res2 = st.columns([2, 1])
+        
+        with col_res1:
+            st.subheader("Model Performans Dağılımı")
+            fig_box, ax_box = plt.subplots(figsize=(10, 6))
+            # Hataya sebep olan 'y=results' yerine net kolon isimleri kullanıyoruz
+            sns.boxplot(data=results_df, x='Model', y='ROC-AUC', palette="Set2", ax=ax_box)
+            ax_box.set_xticklabels(ax_box.get_xticklabels(), rotation=45)
+            st.pyplot(fig_box)
+            
+        with col_res2:
+            st.subheader("Ortalama Skorlar")
+            summary = results_df.groupby("Model")["ROC-AUC"].agg(["mean", "std"]).sort_values("mean", ascending=False)
+            st.dataframe(summary.style.highlight_max(axis=0, subset=['mean'], color='lightgreen'))
+
+        st.success(f"En başarılı model (ROC-AUC): **{summary.index[0]}**")
 # =============================================================================
 # TAB 5: CRM ANALİZİ
 # =============================================================================
