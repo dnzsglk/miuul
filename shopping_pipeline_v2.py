@@ -379,91 +379,71 @@ with tab_eda:
     col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
     col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
     col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
-    
+
     st.divider()
-    
-    # Görselleştirmeler
-st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
 
-# === 1. SATIR ===
-col1, col2 = st.columns(2)
+    # Görselleştirmeler (✅ artık tab içinde)
+    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
 
-with col1:
-    st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
-    fig1, ax1 = plt.subplots(figsize=(8, 5))
+    # === 1. SATIR ===
+    col1, col2 = st.columns(2)
 
-    for status in df_raw['SUBSCRIPTION_STATUS'].unique():
-        data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
-        sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
+    with col1:
+        st.markdown("*Abonelik Durumuna Göre Harcama Dağılımı*")
+        fig1, ax1 = plt.subplots(figsize=(8, 5))
+        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
+            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
+            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
+        ax1.set_xlabel('Harcama Tutarı ($)')
+        ax1.set_ylabel('Yoğunluk')
+        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        st.pyplot(fig1)
+        plt.close(fig1)  # ✅ iyi pratik
 
-    ax1.set_xlabel('Harcama Tutarı ($)')
-    ax1.set_ylabel('Yoğunluk')
-    ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
-    st.pyplot(fig1)
+    with col2:
+        st.markdown("*Kategori Bazlı Abonelik Oranları*")
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        category_sub = (
+            df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
+            .apply(lambda x: (x == 'Yes').mean() * 100)
+            .sort_values()
+        )
+        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2)
+        ax2.set_xlabel('Abonelik Oranı (%)')
+        ax2.set_ylabel('Kategori')
+        ax2.set_title('Kategori Bazında Abonelik Oranları')
+        ax2.grid(True, alpha=0.3, axis='x')
+        st.pyplot(fig2)
+        plt.close(fig2)
 
-with col2:
-    st.markdown("**Kategori Bazlı Abonelik Oranları**")
-    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    # === 2. SATIR ===
+    col3, col4 = st.columns(2)
 
-    category_sub = (
-        df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
-        .apply(lambda x: (x == 'Yes').mean() * 100)
-        .sort_values()
-    )
+    with col3:
+        st.markdown("*Promosyon Kullanımı vs Abonelik*")
+        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig3, ax3 = plt.subplots(figsize=(8, 5))
+        promo_sub.plot(kind='bar', ax=ax3, rot=0)
+        ax3.set_xlabel('Promosyon Kullanımı')
+        ax3.set_ylabel('Yüzde (%)')
+        ax3.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        ax3.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig3)
+        plt.close(fig3)
 
-    sns.barplot(
-        x=category_sub.values,
-        y=category_sub.index,
-        ax=ax2,
-        palette='viridis'
-    )
-
-    ax2.set_xlabel('Abonelik Oranı (%)')
-    ax2.set_ylabel('Kategori')
-    ax2.set_title('Kategori Bazında Abonelik Oranları')
-    ax2.grid(True, alpha=0.3, axis='x')
-    st.pyplot(fig2)
-
-# === 2. SATIR ===
-col3, col4 = st.columns(2)
-
-with col3:
-    st.markdown("**Promosyon Kullanımı vs Abonelik**")
-    promo_sub = pd.crosstab(
-        df_raw['PROMO_CODE_USED'],
-        df_raw['SUBSCRIPTION_STATUS'],
-        normalize='index'
-    ) * 100
-
-    fig3, ax3 = plt.subplots(figsize=(8, 5))
-    promo_sub.plot(kind='bar', ax=ax3, color=['#d62828', '#28a745'], rot=0)
-
-    ax3.set_xlabel('Promosyon Kullanımı')
-    ax3.set_ylabel('Yüzde (%)')
-    ax3.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-    ax3.legend(title='Abonelik', labels=['No', 'Yes'])
-    ax3.grid(True, alpha=0.3, axis='y')
-    st.pyplot(fig3)
-
-with col4:
-    st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
-    gender_sub = pd.crosstab(
-        df_raw['GENDER'],
-        df_raw['SUBSCRIPTION_STATUS'],
-        normalize='index'
-    ) * 100
-
-    fig4, ax4 = plt.subplots(figsize=(8, 5))
-    gender_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a725'], rot=0)
-
-    ax4.set_xlabel('Cinsiyet')
-    ax4.set_ylabel('Yüzde (%)')
-    ax4.set_title('Cinsiyet Bazında Abonelik Dağılımı')
-    ax4.legend(title='Abonelik', labels=['No', 'Yes'])
-    ax4.grid(True, alpha=0.3, axis='y')
-    st.pyplot(fig4)
+    with col4:
+        st.markdown("*Cinsiyet Bazlı Abonelik Dağılımı*")
+        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig4, ax4 = plt.subplots(figsize=(8, 5))
+        gender_sub.plot(kind='bar', ax=ax4, rot=0)
+        ax4.set_xlabel('Cinsiyet')
+        ax4.set_ylabel('Yüzde (%)')
+        ax4.set_title('Cinsiyet Bazında Abonelik Dağılımı')
+        ax4.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig4)
+        plt.close(fig4)
 # =============================================================================
 # TAB 2: SEGMENTASYON (GÜNCELLENMİŞ)
 # =============================================================================
