@@ -1050,12 +1050,423 @@ with tab_model:
         st.info("👆 Modeli eğitmek için yukarıdaki butona tıklayın.")
 
 # =============================================================================
-# TAB 4: MODEL KARŞILAŞTIRMA (Sadece özet - detaylar kaldırıldı)
+# TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
 with tab_comp:
-    st.header("📄 Model Karşılaştırması")
-    st.info("Bu bölümde farklı modellerin performanslarını karşılaştırabilirsiniz. Model Eğitimi sekmesinde CV sonuçlarını görüntüleyebilirsiniz.")
-
+    st.header("📄 Detaylı Model Karşılaştırması")
+    
+    if st.button("🚀 Tüm Modelleri Karşılaştır"):
+        with st.spinner("Modeller karşılaştırılıyor..."):
+            
+            # Veri hazırlığı (Model eğitimi sekmesindeki gibi)
+            # Conditional probabilities
+            probs_cat = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
+            df_eng_train_temp = df_eng_train.copy()
+            df_eng_test_temp = df_eng_test.copy()
+            
+            df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
+            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
+            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            probs_size = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
+            df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
+            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
+            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            probs_season = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
+            df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
+            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
+            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"].mean(), inplace=True)
+            
+            df_eng_train_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
+                df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] *
+                df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] *
+                df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"]
+            )
+            df_eng_test_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
+                df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] *
+                df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] *
+                df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"]
+            )
+            
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW", "global_mean")
+            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "FREQUENCY_VALUE_NEW", "REL_FREQ_CLIMATE_NEW", "global_mean")
+            
+            drop_cols = [
+                'CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE',
+                'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE',
+                'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING',
+                'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED'
+            ]
+            
+            X_train_df_comp, X_test_df_comp = encode_train_test(df_eng_train_temp, df_eng_test_temp, drop_cols)
+            
+            y_train_comp = (df_eng_train_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+            y_test_comp = (df_eng_test_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+            
+            leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
+            leakage_cols = [c for c in X_train_df_comp.columns if c.startswith(leak_prefixes)]
+            
+            X_train_base_comp = X_train_df_comp.drop(columns=leakage_cols, errors="ignore")
+            X_test_base_comp = X_test_df_comp.drop(columns=leakage_cols, errors="ignore")
+            
+            rf_selector = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced")
+            rf_selector.fit(X_train_base_comp, y_train_comp)
+            
+            importances = pd.Series(rf_selector.feature_importances_, index=X_train_base_comp.columns).sort_values(ascending=False)
+            keep_cols = importances[importances >= 0.01].index.tolist()
+            
+            X_train_comp = X_train_base_comp[keep_cols]
+            X_test_comp = X_test_base_comp[keep_cols]
+            
+            scaler_comp = StandardScaler()
+            X_train_s_comp = scaler_comp.fit_transform(X_train_comp)
+            X_test_s_comp = scaler_comp.transform(X_test_comp)
+            
+            # ==================== 5-FOLD CV KARŞILAŞTIRMA (Pipeline'dan) ====================
+            st.subheader("📊 Model Karşılaştırması (5-Fold Cross Validation)")
+            
+            models = [
+                ("Logistic Regression", LogisticRegression(max_iter=1000)),
+                ("Random Forest", RandomForestClassifier(random_state=42, class_weight='balanced')),
+                ("XGBoost", XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)),
+                ("LightGBM", LGBMClassifier(random_state=42, verbose=-1))
+            ]
+            
+            cv_results = []
+            best_model_name = None
+            best_model_score = -1
+            
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for idx, (name, model) in enumerate(models):
+                status_text.text(f"Cross-validation yapılıyor: {name}...")
+                cv_scores = cross_val_score(model, X_train_s_comp, y_train_comp, cv=5, scoring='roc_auc', n_jobs=-1)
+                mean_score = cv_scores.mean()
+                std_score = cv_scores.std()
+                
+                cv_results.append({
+                    'Model': name,
+                    'CV AUC Mean': mean_score,
+                    'Std Dev': std_score
+                })
+                
+                if mean_score > best_model_score:
+                    best_model_score = mean_score
+                    best_model_name = name
+                
+                progress_bar.progress((idx + 1) / len(models))
+            
+            status_text.text(f"✅ Kazanan model: {best_model_name}")
+            
+            # CV sonuçları
+            cv_df = pd.DataFrame(cv_results)
+            st.dataframe(cv_df.style.background_gradient(cmap='Greens', subset=['CV AUC Mean']).format({
+                'CV AUC Mean': '{:.4f}',
+                'Std Dev': '{:.4f}'
+            }))
+            
+            st.success(f"🏆 **En İyi Model (CV AUC):** {best_model_name} (AUC: {best_model_score:.4f})")
+            
+            st.divider()
+            
+            # ==================== TEST PERFORMANSI (THRESHOLD OPTIMIZED) ====================
+            st.subheader("🎯 Test Seti Performansları (Threshold Optimized)")
+            
+            # Threshold optimizasyon fonksiyonu
+            def find_best_threshold_for_recall(y_true, y_prob, target_recall=0.85):
+                thresholds = np.linspace(0.05, 0.95, 19)
+                best = None
+                for thr in thresholds:
+                    y_pred_thr = (y_prob >= thr).astype(int)
+                    rec = recall_score(y_true, y_pred_thr, zero_division=0)
+                    prec = precision_score(y_true, y_pred_thr, zero_division=0)
+                    f1 = f1_score(y_true, y_pred_thr, zero_division=0)
+                    
+                    if rec >= target_recall:
+                        if (best is None) or (prec > best["precision"]):
+                            best = {"thr": thr, "precision": prec, "recall": rec, "f1": f1}
+                return best
+            
+            # Her model için optimal threshold ile test
+            results = []
+            model_predictions = {}
+            threshold_details = {}
+            
+            progress_bar2 = st.progress(0)
+            status_text2 = st.empty()
+            
+            for idx, (name, model) in enumerate(models):
+                status_text2.text(f"Test ediliyor: {name}...")
+                
+                # Model eğitimi
+                model.fit(X_train_s_comp, y_train_comp)
+                
+                # Probability predictions
+                if hasattr(model, 'predict_proba'):
+                    y_proba = model.predict_proba(X_test_s_comp)[:, 1]
+                else:
+                    y_proba = model.decision_function(X_test_s_comp)
+                
+                # Threshold Optimizasyonu
+                target_recall = 0.85
+                best_thr_result = find_best_threshold_for_recall(y_test_comp, y_proba, target_recall=target_recall)
+                
+                if best_thr_result:
+                    best_thr = best_thr_result["thr"]
+                    y_pred = (y_proba >= best_thr).astype(int)
+                    
+                    threshold_details[name] = {
+                        'threshold': best_thr,
+                        'precision': best_thr_result['precision'],
+                        'recall': best_thr_result['recall'],
+                        'f1': best_thr_result['f1']
+                    }
+                else:
+                    # Fallback to 0.50
+                    best_thr = 0.50
+                    y_pred = (y_proba >= best_thr).astype(int)
+                    
+                    threshold_details[name] = {
+                        'threshold': best_thr,
+                        'precision': precision_score(y_test_comp, y_pred, zero_division=0),
+                        'recall': recall_score(y_test_comp, y_pred, zero_division=0),
+                        'f1': f1_score(y_test_comp, y_pred, zero_division=0)
+                    }
+                
+                # Metrikler
+                acc = accuracy_score(y_test_comp, y_pred)
+                prec = precision_score(y_test_comp, y_pred, zero_division=0)
+                rec = recall_score(y_test_comp, y_pred, zero_division=0)
+                f1 = f1_score(y_test_comp, y_pred, zero_division=0)
+                roc_auc = roc_auc_score(y_test_comp, y_proba)
+                
+                results.append({
+                    'Model': name,
+                    'Accuracy': acc,
+                    'Precision': prec,
+                    'Recall': rec,
+                    'F1-Score': f1,
+                    'ROC-AUC': roc_auc,
+                    'Optimal Threshold': best_thr
+                })
+                
+                model_predictions[name] = {
+                    'y_proba': y_proba,
+                    'y_pred': y_pred,
+                    'threshold': best_thr
+                }
+                
+                progress_bar2.progress((idx + 1) / len(models))
+            
+            status_text2.text("✅ Test değerlendirmesi tamamlandı!")
+            
+            # Sonuçları kaydet
+            st.session_state['comparison_results'] = results
+            st.session_state['comparison_predictions'] = model_predictions
+            st.session_state['threshold_details'] = threshold_details
+            st.session_state['y_test_comp'] = y_test_comp
+        
+        st.success("✅ Karşılaştırma tamamlandı!")
+    
+    # SONUÇLAR BÖLÜMÜ
+    if 'comparison_results' in st.session_state and st.session_state['comparison_results']:
+        results_df = pd.DataFrame(st.session_state['comparison_results'])
+        
+        st.subheader("📊 Model Performans Tablosu (Threshold Optimized)")
+        st.dataframe(results_df.style.background_gradient(cmap='RdYlGn', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']).format({
+            'Accuracy': '{:.4f}',
+            'Precision': '{:.4f}',
+            'Recall': '{:.4f}',
+            'F1-Score': '{:.4f}',
+            'ROC-AUC': '{:.4f}',
+            'Optimal Threshold': '{:.2f}'
+        }))
+        
+        # En iyi modeli belirle
+        best_f1_model = results_df.loc[results_df['F1-Score'].idxmax(), 'Model']
+        best_auc_model = results_df.loc[results_df['ROC-AUC'].idxmax(), 'Model']
+        
+        col_best1, col_best2 = st.columns(2)
+        with col_best1:
+            st.success(f"🏆 **En İyi Model (F1-Score):** {best_f1_model}")
+        with col_best2:
+            st.info(f"📈 **En İyi Model (ROC-AUC):** {best_auc_model}")
+        
+        st.divider()
+        
+        # ==================== THRESHOLD DETAYLARI ====================
+        st.subheader("🎯 Threshold Optimizasyon Detayları")
+        
+        if 'threshold_details' in st.session_state:
+            threshold_df = pd.DataFrame(st.session_state['threshold_details']).T
+            threshold_df = threshold_df.reset_index().rename(columns={'index': 'Model'})
+            
+            st.dataframe(threshold_df.style.background_gradient(cmap='YlGn', subset=['precision', 'recall', 'f1']).format({
+                'threshold': '{:.2f}',
+                'precision': '{:.4f}',
+                'recall': '{:.4f}',
+                'f1': '{:.4f}'
+            }))
+            
+            st.caption("ℹ️ Threshold'lar Recall ≥ 0.85 hedefine göre optimize edildi. Precision maksimize edildi.")
+        
+        st.divider()
+        
+        # ==================== KARŞILAŞTIRMA GRAFİKLERİ ====================
+        st.subheader("📈 Model Karşılaştırma Grafikleri")
+        
+        col_c1, col_c2 = st.columns(2)
+        
+        with col_c1:
+            st.markdown("**Metrik Karşılaştırması**")
+            fig_comp1, ax_comp1 = plt.subplots(figsize=(10, 6))
+            metrics_to_plot = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
+            x = np.arange(len(results_df['Model']))
+            width = 0.15
+            
+            for i, metric in enumerate(metrics_to_plot):
+                ax_comp1.bar(x + i*width, results_df[metric], width, label=metric)
+            
+            ax_comp1.set_xlabel('Model', fontsize=11)
+            ax_comp1.set_ylabel('Score', fontsize=11)
+            ax_comp1.set_title('Model Performance Comparison (Threshold Optimized)', fontsize=13)
+            ax_comp1.set_xticks(x + width * 2)
+            ax_comp1.set_xticklabels(results_df['Model'], rotation=45, ha='right')
+            ax_comp1.legend(loc='lower right')
+            ax_comp1.grid(True, alpha=0.3, axis='y')
+            ax_comp1.set_ylim([0, 1.1])
+            plt.tight_layout()
+            st.pyplot(fig_comp1)
+        
+        with col_c2:
+            st.markdown("**ROC Curves Karşılaştırması**")
+            fig_roc_comp, ax_roc_comp = plt.subplots(figsize=(10, 6))
+            
+            for name, preds in st.session_state['comparison_predictions'].items():
+                fpr, tpr, _ = roc_curve(st.session_state['y_test_comp'], preds['y_proba'])
+                roc_auc_val = auc(fpr, tpr)
+                ax_roc_comp.plot(fpr, tpr, lw=2, label=f'{name} (AUC = {roc_auc_val:.3f})')
+            
+            ax_roc_comp.plot([0, 1], [0, 1], 'k--', lw=2, label='Random', alpha=0.5)
+            ax_roc_comp.set_xlabel('False Positive Rate', fontsize=11)
+            ax_roc_comp.set_ylabel('True Positive Rate (Recall)', fontsize=11)
+            ax_roc_comp.set_title('ROC Curves Comparison', fontsize=13)
+            ax_roc_comp.legend(loc='lower right')
+            ax_roc_comp.grid(True, alpha=0.3)
+            plt.tight_layout()
+            st.pyplot(fig_roc_comp)
+        
+        st.divider()
+        
+        # ==================== CONFUSION MATRICES ====================
+        st.subheader("🎯 Confusion Matrices (Optimized Thresholds)")
+        
+        num_models = len(st.session_state['comparison_predictions'])
+        cols_cm = st.columns(num_models)
+        
+        for idx, (name, preds) in enumerate(st.session_state['comparison_predictions'].items()):
+            with cols_cm[idx]:
+                st.markdown(f"**{name}**")
+                st.caption(f"Threshold: {preds['threshold']:.2f}")
+                
+                cm = confusion_matrix(st.session_state['y_test_comp'], preds['y_pred'])
+                fig_cm_small, ax_cm_small = plt.subplots(figsize=(4, 3.5))
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm_small,
+                           xticklabels=['No', 'Yes'], yticklabels=['No', 'Yes'], cbar=False)
+                ax_cm_small.set_xlabel('Predicted', fontsize=9)
+                ax_cm_small.set_ylabel('Actual', fontsize=9)
+                ax_cm_small.set_title(f'{name}', fontsize=10)
+                plt.tight_layout()
+                st.pyplot(fig_cm_small)
+                plt.close()
+        
+        st.divider()
+        
+        # ==================== CLASSIFICATION REPORTS ====================
+        st.subheader("📋 Detaylı Classification Reports")
+        
+        for name, preds in st.session_state['comparison_predictions'].items():
+            with st.expander(f"📄 {name} - Classification Report", expanded=False):
+                report = classification_report(
+                    st.session_state['y_test_comp'], 
+                    preds['y_pred'], 
+                    target_names=['No Subscription', 'Subscription'],
+                    output_dict=True
+                )
+                report_df = pd.DataFrame(report).transpose()
+                
+                st.dataframe(report_df.style.background_gradient(cmap='RdYlGn', subset=['precision', 'recall', 'f1-score']).format({
+                    'precision': '{:.3f}',
+                    'recall': '{:.3f}',
+                    'f1-score': '{:.3f}',
+                    'support': '{:.0f}'
+                }))
+        
+        st.divider()
+        
+        # ==================== THRESHOLD SENSITIVITY ANALYSIS ====================
+        st.subheader("🔍 Threshold Sensitivity Analysis")
+        
+        st.info("📊 Bu analiz, farklı threshold değerlerinin Precision, Recall ve F1-Score üzerindeki etkisini gösterir.")
+        
+        # Model seçimi
+        selected_model_for_threshold = st.selectbox(
+            "Threshold analizi için model seçin:",
+            options=list(st.session_state['comparison_predictions'].keys()),
+            key='threshold_analysis_model'
+        )
+        
+        if selected_model_for_threshold:
+            y_proba_selected = st.session_state['comparison_predictions'][selected_model_for_threshold]['y_proba']
+            
+            # Threshold range analizi
+            thresholds = np.linspace(0.05, 0.95, 19)
+            threshold_results = []
+            
+            for thr in thresholds:
+                y_pred_thr = (y_proba_selected >= thr).astype(int)
+                threshold_results.append({
+                    'Threshold': thr,
+                    'Precision': precision_score(st.session_state['y_test_comp'], y_pred_thr, zero_division=0),
+                    'Recall': recall_score(st.session_state['y_test_comp'], y_pred_thr, zero_division=0),
+                    'F1-Score': f1_score(st.session_state['y_test_comp'], y_pred_thr, zero_division=0)
+                })
+            
+            thr_df = pd.DataFrame(threshold_results)
+            optimal_thr = st.session_state['comparison_predictions'][selected_model_for_threshold]['threshold']
+            
+            # Grafik
+            fig_thr, ax_thr = plt.subplots(figsize=(12, 6))
+            ax_thr.plot(thr_df['Threshold'], thr_df['Precision'], 'b-o', label='Precision', linewidth=2, markersize=6)
+            ax_thr.plot(thr_df['Threshold'], thr_df['Recall'], 'r-s', label='Recall', linewidth=2, markersize=6)
+            ax_thr.plot(thr_df['Threshold'], thr_df['F1-Score'], 'g-^', label='F1-Score', linewidth=2, markersize=6)
+            ax_thr.axvline(optimal_thr, color='orange', linestyle='--', linewidth=2.5, 
+                          label=f"Optimal Threshold: {optimal_thr:.2f}")
+            ax_thr.axhline(0.85, color='gray', linestyle=':', linewidth=1.5, alpha=0.7, label='Target Recall: 0.85')
+            ax_thr.set_xlabel('Threshold', fontsize=12)
+            ax_thr.set_ylabel('Score', fontsize=12)
+            ax_thr.set_title(f'Threshold Sensitivity Analysis - {selected_model_for_threshold}', fontsize=14)
+            ax_thr.legend(loc='best', fontsize=10)
+            ax_thr.grid(True, alpha=0.3)
+            ax_thr.set_ylim([0, 1.05])
+            plt.tight_layout()
+            st.pyplot(fig_thr)
+            
+            # Threshold tablosu
+            st.markdown("**📋 Threshold Değerleri Tablosu:**")
+            st.dataframe(thr_df.style.background_gradient(cmap='RdYlGn', subset=['Precision', 'Recall', 'F1-Score']).format({
+                'Threshold': '{:.2f}',
+                'Precision': '{:.3f}',
+                'Recall': '{:.3f}',
+                'F1-Score': '{:.3f}'
+            }))
+    
+    else:
+        st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
 # =============================================================================
 # TAB 5: CRM ANALİZİ
 # =============================================================================
