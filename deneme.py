@@ -624,7 +624,7 @@ with tab_seg:
         df_pca = pd.DataFrame(comps, columns=["PC1", "PC2"])
         df_pca["Cluster"] = clusters
 
-        fig_pca, ax_pca = plt.subplots(figsize=(8, 7))
+        fig_pca, ax_pca = plt.subplots(figsize=(8, 7), constrained_layout=True)
         scatter = ax_pca.scatter(
             df_pca["PC1"], df_pca["PC2"],
             c=df_pca["Cluster"], cmap="viridis",
@@ -635,7 +635,7 @@ with tab_seg:
         ax_pca.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)")
         ax_pca.set_title("2D Segment Dağılımı")
         ax_pca.grid(True, alpha=0.25)
-        st.pyplot(fig_pca)
+        st.pyplot(fig_pca, use_container_width=True)
         plt.close(fig_pca)
 
     with col_graph2:
@@ -646,7 +646,7 @@ with tab_seg:
         df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
         df_pca3d["Cluster"] = clusters
 
-        fig_3d = plt.figure(figsize=(8, 7))
+        fig_3d = plt.figure(figsize=(8, 7), constrained_layout=True)
         ax_3d = fig_3d.add_subplot(111, projection="3d")
 
         scatter_3d = ax_3d.scatter(
@@ -654,9 +654,13 @@ with tab_seg:
             c=df_pca3d["Cluster"], cmap="viridis",
             s=50, alpha=0.7, edgecolors="w"
         )
+        
+        cbar = fig_3d.colorbar(scatter_3d, ax=ax_3d, shrink=0.6, pad=0.02)
+        cbar.set_label("Cluster")
+        
         ax_3d.set_title("3D Segment Dağılımı")
         ax_3d.tick_params(axis="both", which="major", labelsize=8)
-        st.pyplot(fig_3d)
+        st.pyplot(fig_3d, use_container_width=True)
         plt.close(fig_3d)
 
     st.divider()
@@ -699,13 +703,16 @@ with tab_seg:
 
     # ✅ Senin çıktına göre isim map’i
     cluster_name_map = {
-        4: "Soğuyan Fırsatçılar",
-        3: "Premium Adayları",
-        2: "Yüksek Harcayan Şüpheciler",
-        1: "Düşük Değerli Geri Kazanım",
-        0: "Upsell’e Açık Sadıklar",
+    3: "VIP’e En Yakınlar",
+    0: "Avantaj Avcıları",
+    2: "Büyük Sepetliler",
+    4: "Kararsızlar",
+    1: "Sessiz Kitle"
     }
-    segment_profiles["Segment İsmi"] = segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
+    segment_profiles["Segment İsmi"] = (
+    segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
+    )
+
 
     cluster_action_map = {
         3: "Upsell / Premium",
