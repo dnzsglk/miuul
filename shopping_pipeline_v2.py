@@ -681,7 +681,7 @@ st.dataframe(
     # }))
     
     # Aksiyon Önerileri
-    st.subheader("💡 Önerilen Aksiyonlar")
+   st.subheader("💡 Önerilen Aksiyonlar")
     
     # Düşük abonelik oranlı segmentler
     low_sub_segments = segment_sub_rate[segment_sub_rate['Abonelik Oranı'] < segment_sub_rate['Abonelik Oranı'].mean()]
