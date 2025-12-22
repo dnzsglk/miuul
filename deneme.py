@@ -819,7 +819,8 @@ with tab_model:
 with tab_comp:
     st.header("📄 Detaylı Model Karşılaştırması")
     
-    if 'model_results' in st.session_state:
+    # KONTROL GÜNCELLENDİ: DataFrame kontrolü eklendi
+    if 'model_results' in st.session_state and isinstance(st.session_state['model_results'], pd.DataFrame):
         st.subheader("📊 Cross-Validation Sonuçları")
         st.dataframe(st.session_state['model_results'].style.background_gradient(cmap='Greens', subset=['CV AUC Mean']).format({
             'CV AUC Mean': '{:.4f}',
@@ -827,7 +828,7 @@ with tab_comp:
         }))
         st.info("ℹ️ Bu sonuçlar eğitim aşamasında otomatik olarak hesaplanmıştır.")
     else:
-        st.warning("⚠️ Lütfen önce 'Model Eğitimi' sekmesinden süreci başlatın.")
+        st.warning("⚠️ Sonuçlar henüz oluşmadı. Lütfen önce 'Model Eğitimi' sekmesinden modeli eğitin.")
 
 # =============================================================================
 # TAB 5: CRM ANALİZİ
