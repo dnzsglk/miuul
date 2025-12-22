@@ -383,7 +383,8 @@ with tab_eda:
     st.divider()
 
     # Görselleştirmeler (✅ artık tab içinde)
-   st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+    # 386. satır tam olarak burada, bir seviye içeride başlamalı
+    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
 
     # 1. SATIR: Harcama Dağılımı ve Kategori Bazlı Oranlar
     col1, col2 = st.columns(2)
@@ -391,6 +392,7 @@ with tab_eda:
     with col1:
         st.markdown("*Abonelik Durumuna Göre Harcama Dağılımı*")
         fig1, ax1 = plt.subplots(figsize=(8, 5))
+        # df_raw yerine kullandığınız değişken isminden emin olun
         for status in df_raw['SUBSCRIPTION_STATUS'].unique():
             data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
             sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
@@ -410,6 +412,7 @@ with tab_eda:
             .apply(lambda x: (x == 'Yes').mean() * 100)
             .sort_values()
         )
+        # Renkli barlar için hue ve palette eklendi
         sns.barplot(
             x=category_sub.values, 
             y=category_sub.index, 
@@ -425,8 +428,8 @@ with tab_eda:
         st.pyplot(fig2)
         plt.close(fig2)
 
-    # 2. SATIR: Promosyon ve Cinsiyet Dağılımı (Burada yeni bir row başlatıyoruz)
-    st.divider() # İstersen araya bir çizgi çekebilirsin
+    # 2. SATIR: Diğer grafikler (Ayrı satır olması için col1/col2 bloğundan ÇIKTIK)
+    st.divider()
     col3, col4 = st.columns(2)
 
     with col3:
@@ -437,7 +440,6 @@ with tab_eda:
         ax3.set_xlabel('Promosyon Kullanımı')
         ax3.set_ylabel('Yüzde (%)')
         ax3.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax3.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig3)
         plt.close(fig3)
 
@@ -449,7 +451,6 @@ with tab_eda:
         ax4.set_xlabel('Cinsiyet')
         ax4.set_ylabel('Yüzde (%)')
         ax4.set_title('Cinsiyet Bazında Abonelik Dağılımı')
-        ax4.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig4)
         plt.close(fig4)
 # =============================================================================
