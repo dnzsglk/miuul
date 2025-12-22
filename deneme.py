@@ -23,6 +23,8 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
                              classification_report, precision_score, recall_score, 
                              f1_score, roc_curve, auc, silhouette_score)
 
+import streamlit.components.v1 as components
+
 # Ayarlar
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Miuul Alışveriş Analizi V2", page_icon="🛍️", layout="wide")
@@ -52,14 +54,7 @@ st.markdown(f"""
     <div class="snowflake">{animation_symbol}</div>
     """, unsafe_allow_html=True)
 
-# Müzik Bölümü
-# 1. EN ÜSTE EKLE (Importlar arasına)
-# 1. EN ÜSTE EKLE (Importlar arasına)
-import streamlit.components.v1 as components
-
-# ... (mevcut kodların) ...
-
-# 2. SIDEBAR BÖLÜMÜNE EKLE
+# 2. SIDEBAR BÖLÜMÜ
 st.sidebar.markdown("---")
 
 # Noel Ağacı
@@ -70,7 +65,7 @@ st.sidebar.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# Otomatik Müzik Çalar (JavaScript Tetikleyici)
+# Otomatik Müzik Çalar
 audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
 
 components.html(
@@ -81,9 +76,6 @@ components.html(
     <script>
         var audio = document.getElementById("christmasAudio");
         audio.volume = 0.4;
-        
-        // Tarayıcı kısıtlamasını aşmak için: 
-        // Kullanıcı sayfada herhangi bir yere tıkladığı an müzik başlar.
         window.parent.document.addEventListener('click', function() {{
             audio.play();
         }}, {{ once: true }});
@@ -156,6 +148,7 @@ def apply_modern_christmas_theme():
     """, unsafe_allow_html=True)
 
 apply_modern_christmas_theme() 
+
 # =============================================================================
 # YARDIMCI FONKSİYONLAR
 # =============================================================================
@@ -295,6 +288,121 @@ def encode_train_test(train_df, test_df, drop_cols):
     return train_enc, test_enc
 
 # =============================================================================
+# CACHED MODEL EĞİTİM FONKSİYONU
+# =============================================================================
+@st.cache_resource
+def train_and_cache_pipeline(df_train, df_test):
+    # 1. Conditional probabilities
+    probs_cat = fit_conditional_probs(df_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
+    probs_size = fit_conditional_probs(df_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
+    probs_season = fit_conditional_probs(df_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
+    
+    # 2. Train/Test setlerine uygulama
+    for df in [df_train, df_test]:
+        df["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
+        df["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
+        df["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
+        df.fillna(df_train.mean(numeric_only=True), inplace=True)
+        
+        df["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
+            df["P_CATEGORY_given_CLIMATE_NEW"] * df["P_SIZE_given_CLIMATE_NEW"] * df["P_SEASON_given_CLIMATE_NEW"]
+        )
+
+    # 3. Group mean ratios
+    df_train, df_test = add_group_mean_ratio(df_train, df_test, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW")
+    df_train, df_test = add_group_mean_ratio(df_train, df_test, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW")
+    df_train, df_test = add_group_mean_ratio(df_train, df_test, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW")
+    
+    # 4. Encoding ve Değişken Seçimi
+    drop_cols = ['CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE', 
+                 'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE', 'PURCHASE_AMOUNT_(USD)', 
+                 'PREVIOUS_PURCHASES', 'REVIEW_RATING', 'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED']
+    
+    X_train_df, X_test_df = encode_train_test(df_train, df_test, drop_cols)
+    y_train = (df_train["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+    y_test = (df_test["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+
+    # Leakage Temizliği
+    leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
+    X_train_base = X_train_df.drop(columns=[c for c in X_train_df.columns if c.startswith(leak_prefixes)], errors="ignore")
+    X_test_base = X_test_df.drop(columns=[c for c in X_test_df.columns if c.startswith(leak_prefixes)], errors="ignore")
+    
+    # Feature Selection
+    rf_selector = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1, class_weight='balanced')
+    rf_selector.fit(X_train_base, y_train)
+    importances = pd.Series(rf_selector.feature_importances_, index=X_train_base.columns)
+    keep_cols = importances[importances >= 0.01].index.tolist()
+    
+    X_train = X_train_base[keep_cols]
+    X_test = X_test_base[keep_cols]
+    
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
+    
+    # 5. Model Karşılaştırma ve Seçim
+    models = [
+        ("XGBoost", XGBClassifier(random_state=42, eval_metric="logloss")),
+        ("RandomForest", RandomForestClassifier(random_state=42, class_weight='balanced')),
+        ("LightGBM", LGBMClassifier(random_state=42, verbose=-1)),
+        ("LogisticRegression", LogisticRegression(max_iter=1000))
+    ]
+    
+    cv_results = []
+    best_score = -1
+    best_model_name = ""
+    best_model_obj = None
+    
+    for name, model in models:
+        scores = cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc')
+        mean_auc = scores.mean()
+        cv_results.append({'Model': name, 'CV AUC Mean': mean_auc, 'Std Dev': scores.std()})
+        
+        if mean_auc > best_score:
+            best_score = mean_auc
+            best_model_name = name
+            best_model_obj = model
+
+    # Kazanan modeli eğit
+    best_model_obj.fit(X_train_s, y_train)
+    
+    # Threshold Optimization
+    if hasattr(best_model_obj, 'predict_proba'):
+        y_proba = best_model_obj.predict_proba(X_test_s)[:, 1]
+    else:
+        y_proba = best_model_obj.decision_function(X_test_s)
+        
+    thresholds = np.linspace(0.05, 0.95, 19)
+    best_thr_res = None
+    target_recall = 0.85
+    
+    for thr in thresholds:
+        y_pred_thr = (y_proba >= thr).astype(int)
+        rec = recall_score(y_test, y_pred_thr, zero_division=0)
+        prec = precision_score(y_test, y_pred_thr, zero_division=0)
+        f1 = f1_score(y_test, y_pred_thr, zero_division=0)
+        
+        if rec >= target_recall:
+            if (best_thr_res is None) or (prec > best_thr_res["precision"]):
+                best_thr_res = {"thr": thr, "precision": prec, "recall": rec, "f1": f1}
+    
+    final_thr = best_thr_res["thr"] if best_thr_res else 0.50
+    y_pred_final = (y_proba >= final_thr).astype(int)
+
+    return {
+        'model': best_model_obj,
+        'scaler': scaler,
+        'features': keep_cols,
+        'cv_table': pd.DataFrame(cv_results),
+        'X_train': X_train, # Feature importance için
+        'y_test': y_test,
+        'y_pred': y_pred_final,
+        'y_proba': y_proba,
+        'best_thr': final_thr,
+        'best_model_name': best_model_name
+    }
+
+# =============================================================================
 # UYGULAMA ARAYÜZÜ
 # =============================================================================
 
@@ -370,63 +478,88 @@ with st.spinner('Veri işleniyor...'):
 # =============================================================================
 # TAB 1: EDA
 # =============================================================================
-# --- TAB 2: MODEL EĞİTİMİ VE KARŞILAŞTIRMA ---
-with tab_model:
-    st.header("##################### 4. MODEL KARŞILAŞTIRMA (5-FOLD CV) #####################")
+with tab_eda:
+    st.header("📊 Keşifsel Veri Analizi")
     
-    # Veri Hazırlığı (Hataları önlemek için)
-    X = pd.get_dummies(df_eng.drop(columns=['CUSTOMER_ID', 'SUBSCRIPTION_STATUS'], errors='ignore'), drop_first=True)
-    y = (df_raw["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+    # Genel Metrikler
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Müşteri Sayısı", df_raw.shape[0])
+    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
+    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
+    col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
+
+    st.divider()
+
+    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+
+    # === 1. SATIR ===
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("*Abonelik Durumuna Göre Harcama Dağılımı*")
+        fig1, ax1 = plt.subplots(figsize=(8, 5))
+        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
+            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
+            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
+        ax1.set_xlabel('Harcama Tutarı ($)')
+        ax1.set_ylabel('Yoğunluk')
+        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        st.pyplot(fig1)
+        plt.close(fig1)
+
+    with col2:
+        st.markdown("*Kategori Bazlı Abonelik Oranları*")
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        category_sub = (
+            df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
+            .apply(lambda x: (x == 'Yes').mean() * 100)
+            .sort_values()
+        )
+        sns.barplot(
+            x=category_sub.values, 
+            y=category_sub.index, 
+            ax=ax2, 
+            hue=category_sub.index, 
+            palette='viridis', 
+            legend=False
+        )
+        ax2.set_xlabel('Abonelik Oranı (%)')
+        ax2.set_ylabel('Kategori')
+        ax2.set_title('Kategori Bazında Abonelik Oranları')
+        ax2.grid(True, alpha=0.3, axis='x')
+        st.pyplot(fig2)
+        plt.close(fig2)
     
-    if st.button("🚀 Modelleri 5-Fold CV ile Yarıştır"):
-        with st.spinner("Modeller çapraz doğrulama ile test ediliyor, lütfen bekleyin..."):
-            
-            # Sinem'in dosyasındaki modeller ve parametreler
-            models = [
-                ("LogisticRegression", LogisticRegression(max_iter=1000)),
-                ("RandomForest", RandomForestClassifier(random_state=42, class_weight='balanced')),
-                ("XGBoost", XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)),
-                ("LightGBM", LGBMClassifier(random_state=42, verbose=-1))
-            ]
+    # === 2. SATIR ===
+    st.divider()
+    col3, col4 = st.columns(2)
 
-            results_list = []
-            
-            # Görselleştirme için sütunlar hazırlayalım
-            for name, model in models:
-                # 5-Fold Cross Validation
-                cv_scores = cross_val_score(model, X, y, cv=5, scoring='roc_auc', n_jobs=-1)
-                
-                results_list.append({
-                    "Model": name,
-                    "CV AUC (Mean)": cv_scores.mean(),
-                    "Std Dev": cv_scores.std()
-                })
+    with col3:
+        st.markdown("*Promosyon Kullanımı vs Abonelik*")
+        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig3, ax3 = plt.subplots(figsize=(8, 5))
+        promo_sub.plot(kind='bar', ax=ax3, rot=0)
+        ax3.set_xlabel('Promosyon Kullanımı')
+        ax3.set_ylabel('Yüzde (%)')
+        ax3.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        ax3.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig3)
+        plt.close(fig3)
 
-            # Sonuçları DataFrame yapıp ekrana basalım
-            res_df = pd.DataFrame(results_list).sort_values(by="CV AUC (Mean)", ascending=False)
-            
-            # Streamlit üzerinde tablo gösterimi
-            st.subheader("📊 Çapraz Doğrulama Sonuçları")
-            st.table(res_df.style.format({"CV AUC (Mean)": "{:.4f}", "Std Dev": "{:.4f}"})
-                           .highlight_max(axis=0, subset=['CV AUC (Mean)'], color='#1e5631'))
+    with col4:
+        st.markdown("*Cinsiyet Bazlı Abonelik Dağılımı*")
+        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        fig4, ax4 = plt.subplots(figsize=(8, 5))
+        gender_sub.plot(kind='bar', ax=ax4, rot=0)
+        ax4.set_xlabel('Cinsiyet')
+        ax4.set_ylabel('Yüzde (%)')
+        ax4.set_title('Cinsiyet Bazında Abonelik Dağılımı')
+        ax4.grid(True, alpha=0.3, axis='y')
+        st.pyplot(fig4)
+        plt.close(fig4)
 
-            # En iyi modeli seçme ve eğitme
-            best_model_name = res_df.iloc[0]['Model']
-            st.success(f"🏆 KAZANAN MODEL: **{best_model_name}** (AUC: {res_df.iloc[0]['CV AUC (Mean)']:.4f})")
-            
-            # Kazanan modeli tüm veriyle eğitip session_state'e kaydedelim (Tahmin sekmesi için)
-            final_model_instance = next(m[1] for m in models if m[0] == best_model_name)
-            final_model_instance.fit(X, y)
-            
-            st.session_state['final_model'] = final_model_instance
-            st.session_state['best_model_name'] = best_model_name
-            st.session_state['X_columns'] = X.columns.tolist()
-            
-            # Basit bir AUC Grafiği (Opsiyonel)
-            fig_res, ax_res = plt.subplots(figsize=(10, 4))
-            sns.barplot(data=res_df, x='CV AUC (Mean)', y='Model', palette='viridis', ax=ax_res)
-            ax_res.set_xlim(0, 1.0)
-            st.pyplot(fig_res)
 # =============================================================================
 # TAB 2: SEGMENTASYON
 # =============================================================================
@@ -447,118 +580,65 @@ with tab_seg:
     scaler_seg = StandardScaler()
     X_scaled = scaler_seg.fit_transform(X_seg)
     
-    # Elbow Method
-    st.subheader("📈 Optimal K Belirleme (Elbow Method)")
-    
     wcss = []
     k_range = range(2, 11)
-    
     for k in k_range:
         km = KMeans(n_clusters=k, random_state=42, n_init=10).fit(X_scaled)
         wcss.append(km.inertia_)
     
-    # Elbow point
     p1 = np.array([k_range[0], wcss[0]])
     p2 = np.array([k_range[-1], wcss[-1]])
     dists = [np.abs(np.cross(p2-p1, p1-np.array([k_range[i], wcss[i]]))) / np.linalg.norm(p2-p1) for i in range(len(wcss))]
     optimal_k = k_range[np.argmax(dists)]
     
-    c1, c2 = st.columns([1, 2])
-    
-    with c1:
-        st.info(f"**Optimal Küme Sayısı (K): {optimal_k}**")
-        
-        # Elbow grafik
-        fig_elb, ax_elb = plt.subplots(figsize=(8, 5))
-        ax_elb.plot(k_range, wcss, 'bo--', linewidth=2, markersize=8)
-        ax_elb.axvline(optimal_k, color='r', linestyle='--', linewidth=2)
-        ax_elb.set_xlabel('Küme Sayısı (K)')
-        ax_elb.set_ylabel('WCSS')
-        ax_elb.set_title(f"Elbow Method (Optimal K={optimal_k})")
-        ax_elb.grid(True, alpha=0.3)
-        st.pyplot(fig_elb)
-    
-    with c2:
-        # KMeans fit
-        kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
-        clusters = kmeans.fit_predict(X_scaled)
-        
-        # Silhouette Score
-        sil_score = silhouette_score(X_scaled, clusters)
-        st.metric("Silhouette Score", f"{sil_score:.3f}")
-        st.caption("Silhouette Score [-1, 1] arasında değişir. 1'e yakın olması kümelerin iyi ayrıştığını gösterir.")
-        
-        # PCA 2D
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    clusters = kmeans.fit_predict(X_scaled)
+    sil_score = silhouette_score(X_scaled, clusters)
+
+    m1, m2 = st.columns(2)
+    m1.metric("Optimal Küme Sayısı (K)", optimal_k)
+    m2.metric("Silhouette Score", f"{sil_score:.3f}")
+
+    st.divider()
+
+    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
+    col_graph1, col_graph2 = st.columns(2)
+
+    with col_graph1:
         pca = PCA(n_components=2)
         comps = pca.fit_transform(X_scaled)
         df_pca = pd.DataFrame(comps, columns=['PC1', 'PC2'])
         df_pca['Cluster'] = clusters
         
-        fig_pca, ax_pca = plt.subplots(figsize=(10, 6))
+        fig_pca, ax_pca = plt.subplots(figsize=(8, 7))
         scatter = ax_pca.scatter(df_pca['PC1'], df_pca['PC2'], c=df_pca['Cluster'], 
                                 cmap='viridis', s=50, alpha=0.6, edgecolors='w')
         plt.colorbar(scatter, ax=ax_pca, label='Cluster')
         ax_pca.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)')
         ax_pca.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)')
-        ax_pca.set_title(f"Segment Dağılımı 2D (K={optimal_k}, Silhouette={sil_score:.3f})")
+        ax_pca.set_title("2D Segment Dağılımı")
         st.pyplot(fig_pca)
-    
+
+    with col_graph2:
+        from mpl_toolkits.mplot3d import Axes3D
+        pca3d = PCA(n_components=3)
+        comps3d = pca3d.fit_transform(X_scaled)
+        df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
+        df_pca3d["Cluster"] = clusters
+        
+        fig_3d = plt.figure(figsize=(8, 7))
+        ax_3d = fig_3d.add_subplot(111, projection='3d')
+        
+        scatter_3d = ax_3d.scatter(
+            df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
+            c=df_pca3d["Cluster"], cmap="viridis", s=50, alpha=0.7, edgecolors='w'
+        )
+        ax_3d.set_title("3D Segment Dağılımı")
+        ax_3d.tick_params(axis='both', which='major', labelsize=8)
+        st.pyplot(fig_3d)
+
     st.divider()
     
-    # PCA 3D Görselleştirme
-    st.subheader("🎨 3D Segment Görselleştirmesi")
-    
-    from mpl_toolkits.mplot3d import Axes3D
-    
-    pca3d = PCA(n_components=3)
-    comps3d = pca3d.fit_transform(X_scaled)
-    df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
-    df_pca3d["Cluster"] = clusters
-    
-    fig_3d = plt.figure(figsize=(14, 10))
-    ax_3d = fig_3d.add_subplot(111, projection='3d')
-    
-    scatter_3d = ax_3d.scatter(
-        df_pca3d["PC1"],
-        df_pca3d["PC2"],
-        df_pca3d["PC3"],
-        c=df_pca3d["Cluster"],
-        cmap="viridis",
-        s=70,
-        alpha=0.8,
-        edgecolors='w',
-        linewidth=0.5
-    )
-    
-    ax_3d.set_xlabel(f"PC1 ({pca3d.explained_variance_ratio_[0]*100:.1f}%)", fontsize=11)
-    ax_3d.set_ylabel(f"PC2 ({pca3d.explained_variance_ratio_[1]*100:.1f}%)", fontsize=11)
-    ax_3d.set_zlabel(f"PC3 ({pca3d.explained_variance_ratio_[2]*100:.1f}%)", fontsize=11)
-    ax_3d.set_title(f"Müşteri Segmentleri (PCA 3D - K={optimal_k})", fontsize=14, pad=20)
-    
-    legend_3d = ax_3d.legend(*scatter_3d.legend_elements(), title="Cluster", loc='upper left')
-    ax_3d.add_artist(legend_3d)
-    
-    # Toplam açıklanan varyans
-    total_var = pca3d.explained_variance_ratio_.sum()
-    ax_3d.text2D(0.05, 0.95, f'Toplam Varyans: {total_var*100:.1f}%', 
-                transform=ax_3d.transAxes, fontsize=10, 
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    
-    st.pyplot(fig_3d)
-    
-    # Varyans açıklaması
-    var_col1, var_col2 = st.columns(2)
-    with var_col1:
-        st.info(f"**PC1:** {pca3d.explained_variance_ratio_[0]*100:.2f}% varyans açıklıyor")
-        st.info(f"**PC2:** {pca3d.explained_variance_ratio_[1]*100:.2f}% varyans açıklıyor")
-        st.info(f"**PC3:** {pca3d.explained_variance_ratio_[2]*100:.2f}% varyans açıklıyor")
-    with var_col2:
-        st.success(f"**Toplam:** {total_var*100:.2f}% varyans açıklanıyor")
-        st.caption("3 boyutlu PCA, verinin daha fazla varyansını yakalayarak segmentlerin daha iyi görselleştirilmesini sağlar.")
-    
-    st.divider()
-    
-    # Segment profilleri
     df_report = df_eng.copy()
     df_report['Cluster'] = clusters
     df_report['PROMO_USED_VAL'] = df_report['PROMO_CODE_USED'].apply(lambda x: 1 if x=='Yes' else 0)
@@ -566,7 +646,6 @@ with tab_seg:
     st.subheader("📊 Segment Profilleri")
     profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'PROMO_USED_VAL']].mean()
     
-    # Segment isimlendirme
     def name_segment(row):
         spend = row['TOTAL_SPEND_WEIGHTED_NEW']
         age = row['AGE']
@@ -615,45 +694,11 @@ with tab_seg:
     }))
     
     st.divider()
-    
-    # Abonelik İstatistikleri
-    st.subheader("📈 Abonelik İstatistikleri")
-    
-    stat_col1, stat_col2 = st.columns(2)
-    
-    with stat_col1:
-        st.markdown("**Promosyon Kullanımı vs Abonelik**")
-        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        fig_promo, ax_promo = plt.subplots(figsize=(8, 5))
-        promo_sub.plot(kind='bar', ax=ax_promo, color=['#d62828', '#28a745'], rot=0)
-        ax_promo.set_xlabel('Promosyon Kullanımı')
-        ax_promo.set_ylabel('Yüzde (%)')
-        ax_promo.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax_promo.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax_promo.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig_promo)
-    
-    with stat_col2:
-        st.markdown("**Cinsiyet Bazlı Abonelik Dağılımı**")
-        gender_sub = pd.crosstab(df_raw['GENDER'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        fig_gender, ax_gender = plt.subplots(figsize=(8, 5))
-        gender_sub.plot(kind='bar', ax=ax_gender, color=['#d62828', '#28a725'], rot=0)
-        ax_gender.set_xlabel('Cinsiyet')
-        ax_gender.set_ylabel('Yüzde (%)')
-        ax_gender.set_title('Cinsiyet Bazında Abonelik Dağılımı')
-        ax_gender.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax_gender.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig_gender)
-    
-    st.divider()
-    
-    # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
+        
     st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
     
-    # Abonelik durumu ile segment analizi
     df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
     
-    # Her segment için abonelik oranı
     segment_sub_rate = df_report.groupby('Cluster').agg({
         'SUBSCRIPTION': 'mean',
         'CUSTOMER_ID': 'count',
@@ -665,11 +710,8 @@ with tab_seg:
     segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
     segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
     
-    # Segment isimlerini ekle
     segment_names = profile['Segment İsmi'].to_dict()
     segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
-    
-    # Sıralama: Cluster numarasına göre (default)
     segment_sub_rate = segment_sub_rate.sort_index()
     segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
     
@@ -680,10 +722,8 @@ with tab_seg:
         'Ort. Rating': '{:.2f}'
     }))
     
-    # Aksiyon Önerileri
     st.subheader("💡 Önerilen Aksiyonlar")
     
-    # Düşük abonelik oranlı segmentler
     low_sub_segments = segment_sub_rate[segment_sub_rate['Abonelik Oranı'] < segment_sub_rate['Abonelik Oranı'].mean()]
     
     if len(low_sub_segments) > 0:
@@ -692,37 +732,26 @@ with tab_seg:
         for idx, row in low_sub_segments.iterrows():
             with st.expander(f"📌 Cluster {idx}: {row['Segment İsmi']}"):
                 col_exp1, col_exp2 = st.columns(2)
-                
                 with col_exp1:
                     st.metric("Müşteri Sayısı", f"{row['Müşteri Sayısı']:.0f}")
                     st.metric("Abonelik Oranı", f"{row['Abonelik Oranı']:.1f}%")
                     st.metric("Ort. Harcama", f"${row['Ort. Harcama']:.2f}")
-                
                 with col_exp2:
                     st.metric("Ort. Alışveriş Sayısı", f"{row['Ort. Alışveriş Sayısı']:.1f}")
                     st.metric("Ort. Rating", f"{row['Ort. Rating']:.2f}")
                 
                 st.markdown("**🎯 Önerilen Aksiyonlar:**")
-                
                 if row['Abonelik Oranı'] < 30:
                     st.write("✅ Agresif abonelik kampanyası (ilk 3 ay %50 indirim)")
                 elif row['Abonelik Oranı'] < 50:
                     st.write("✅ Orta düzey abonelik teşviki (ilk ay %30 indirim)")
-                
                 if row['Ort. Harcama'] > segment_sub_rate['Ort. Harcama'].mean():
                     st.write("✅ VIP müşteri programı sun (premium avantajlar)")
-                
                 if row['Ort. Rating'] < 3.5:
                     st.write("✅ Müşteri memnuniyeti anketleri ve iyileştirme planı")
-                
-                if row['Ort. Alışveriş Sayısı'] < 20:
-                    st.write("✅ Sadakat programı ve tekrar satın alma teşvikleri")
-                else:
-                    st.write("✅ Sadık müşteri ödüllendirme programı")
     else:
         st.success("✅ Tüm segmentler ortalamanın üzerinde abonelik oranına sahip!")
     
-    # Session state'e kaydet
     st.session_state['kmeans'] = kmeans
     st.session_state['scaler_seg'] = scaler_seg
     st.session_state['profile'] = profile
@@ -731,540 +760,74 @@ with tab_seg:
     st.session_state['segment_sub_rate'] = segment_sub_rate
 
 # =============================================================================
-# TAB 3: MODEL EĞİTİMİ
+# TAB 3: MODEL EĞİTİMİ (CACHE OPTİMİZASYONLU)
 # =============================================================================
 with tab_model:
     st.header("🎯 Model Eğitimi (Leakage-Free Pipeline)")
     
-    if st.button("🚀 Modeli Eğit"):
-        with st.spinner("Model eğitiliyor..."):
+    if st.button("🚀 Modelleri Eğit / Cache'den Getir"):
+        with st.spinner("Pipeline çalışıyor..."):
+            # Cache'li fonksiyonu çağırıyoruz
+            results = train_and_cache_pipeline(df_eng_train, df_eng_test)
             
-            # Conditional probabilities
-            probs_cat = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
-            df_eng_train["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test["P_CATEGORY_given_CLIMATE_NEW"].fillna(df_eng_train["P_CATEGORY_given_CLIMATE_NEW"].mean(), inplace=True)
+            # Session State'e kaydet
+            st.session_state['final_model'] = results['model']
+            st.session_state['scaler_model'] = results['scaler']
+            st.session_state['X_columns'] = results['features']
+            st.session_state['best_threshold'] = results['best_thr']
+            st.session_state['model_results'] = results['cv_table']
             
-            probs_size = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
-            df_eng_train["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test["P_SIZE_given_CLIMATE_NEW"].fillna(df_eng_train["P_SIZE_given_CLIMATE_NEW"].mean(), inplace=True)
+            st.success(f"✅ En başarılı model: **{results['best_model_name']}**")
             
-            probs_season = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
-            df_eng_train["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test["P_SEASON_given_CLIMATE_NEW"].fillna(df_eng_train["P_SEASON_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            # Fit scores
-            df_eng_train["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_train["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_train["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_train["P_SEASON_given_CLIMATE_NEW"]
-            )
-            df_eng_test["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_test["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_test["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_test["P_SEASON_given_CLIMATE_NEW"]
-            )
-            
-            # Group mean ratios
-            df_eng_train, df_eng_test = add_group_mean_ratio(df_eng_train, df_eng_test, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW", "global_mean")
-            df_eng_train, df_eng_test = add_group_mean_ratio(df_eng_train, df_eng_test, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW", "global_mean")
-            df_eng_train, df_eng_test = add_group_mean_ratio(df_eng_train, df_eng_test, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW", "global_mean")
-            df_eng_train, df_eng_test = add_group_mean_ratio(df_eng_train, df_eng_test, "CLIMATE_GROUP_NEW", "FREQUENCY_VALUE_NEW", "REL_FREQ_CLIMATE_NEW", "global_mean")
-            
-            # Encoding
-            drop_cols = [
-                'CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE',
-                'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE',
-                'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING',
-                'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED'
-            ]
-            
-            X_train_df, X_test_df = encode_train_test(df_eng_train, df_eng_test, drop_cols)
-            
-            y_train = (df_eng_train["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            y_test = (df_eng_test["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            
-            # Leakage temizliği
-            leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
-            leakage_cols = [c for c in X_train_df.columns if c.startswith(leak_prefixes)]
-            
-            X_train_base = X_train_df.drop(columns=leakage_cols, errors="ignore")
-            X_test_base = X_test_df.drop(columns=leakage_cols, errors="ignore")
-            
-            # Feature selection
-            rf_selector = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced")
-            rf_selector.fit(X_train_base, y_train)
-            
-            importances = pd.Series(rf_selector.feature_importances_, index=X_train_base.columns).sort_values(ascending=False)
-            keep_cols = importances[importances >= 0.01].index.tolist()
-            
-            X_train = X_train_base[keep_cols]
-            X_test = X_test_base[keep_cols]
-            
-            scaler_model = StandardScaler()
-            X_train_s = scaler_model.fit_transform(X_train)
-            X_test_s = scaler_model.transform(X_test)
-            
-            # Model karşılaştırma (5-fold CV)
-            models = [
-                ("LogisticRegression", LogisticRegression(max_iter=1000)),
-                ("RandomForest", RandomForestClassifier(random_state=42, class_weight='balanced')),
-                ("XGBoost", XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)),
-                ("LightGBM", LGBMClassifier(random_state=42, verbose=-1))
-            ]
-            
-            best_model_name = None
-            best_model_score = -1
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            cv_results = []
-            
-            for idx, (name, model) in enumerate(models):
-                status_text.text(f"Cross-validation yapılıyor: {name}...")
-                cv_scores = cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc', n_jobs=-1)
-                mean_score = cv_scores.mean()
-                std_score = cv_scores.std()
-                
-                cv_results.append({
-                    'Model': name,
-                    'CV AUC Mean': mean_score,
-                    'Std Dev': std_score
-                })
-                
-                if mean_score > best_model_score:
-                    best_model_score = mean_score
-                    best_model_name = name
-                
-                progress_bar.progress((idx + 1) / len(models))
-            
-            status_text.text(f"✅ Kazanan model: {best_model_name}")
-            
-            # CV sonuçları
-            st.subheader("📊 Cross-Validation Sonuçları")
-            cv_df = pd.DataFrame(cv_results)
-            st.dataframe(cv_df.style.background_gradient(cmap='Greens', subset=['CV AUC Mean']).format({
-                'CV AUC Mean': '{:.4f}',
-                'Std Dev': '{:.4f}'
-            }))
-            
-            # Final model eğitimi
-            st.subheader(f"🎯 Final Model Optimizasyonu: {best_model_name}")
-            
-            if best_model_name == "RandomForest":
-                params = {
-                    'n_estimators': [200, 400],
-                    'max_depth': [8, 12, 16],
-                    'min_samples_split': [2, 5],
-                    'min_samples_leaf': [1, 2]
-                }
-                estimator = RandomForestClassifier(random_state=42, class_weight='balanced')
-            elif best_model_name == "XGBoost":
-                params = {
-                    'learning_rate': [0.01, 0.05, 0.1],
-                    'n_estimators': [200, 400],
-                    'max_depth': [3, 5, 7]
-                }
-                estimator = XGBClassifier(objective="binary:logistic", eval_metric="logloss", random_state=42)
-            elif best_model_name == "LightGBM":
-                params = {
-                    'learning_rate': [0.01, 0.05, 0.1],
-                    'n_estimators': [200, 400],
-                    'num_leaves': [20, 31, 50]
-                }
-                estimator = LGBMClassifier(random_state=42, verbose=-1)
-            else:
-                params = {'C': [0.1, 1, 10]}
-                estimator = LogisticRegression(max_iter=1000)
-            
-            with st.spinner(f"{best_model_name} GridSearch ile optimize ediliyor..."):
-                grid = GridSearchCV(estimator, params, cv=5, scoring='roc_auc', n_jobs=-1)
-                grid.fit(X_train_s, y_train)
-                final_model = grid.best_estimator_
-            
-            st.success("✅ Model eğitimi tamamlandı!")
-            st.info(f"**En İyi Parametreler:** {grid.best_params_}")
-            
-            # Test tahmini
-            if hasattr(final_model, 'predict_proba'):
-                y_proba = final_model.predict_proba(X_test_s)[:, 1]
-            else:
-                y_proba = final_model.decision_function(X_test_s)
-            
-            # Threshold optimizasyonu
-            st.subheader("🎯 Threshold Optimizasyonu")
-            
-            def find_best_threshold(y_true, y_prob, target_recall=0.85):
-                thresholds = np.linspace(0.05, 0.95, 19)
-                best = None
-                for thr in thresholds:
-                    y_pred_thr = (y_prob >= thr).astype(int)
-                    rec = recall_score(y_true, y_pred_thr, zero_division=0)
-                    prec = precision_score(y_true, y_pred_thr, zero_division=0)
-                    f1 = f1_score(y_true, y_pred_thr, zero_division=0)
-                    
-                    if rec >= target_recall:
-                        if (best is None) or (prec > best["precision"]):
-                            best = {"thr": thr, "precision": prec, "recall": rec, "f1": f1}
-                return best
-            
-            target_recall = 0.85
-            best_thr_result = find_best_threshold(y_test, y_proba, target_recall=target_recall)
-            
-            if best_thr_result:
-                best_thr = best_thr_result["thr"]
-                st.session_state['best_threshold'] = best_thr
-                
-                col_thr1, col_thr2, col_thr3 = st.columns(3)
-                col_thr1.metric("Optimal Threshold", f"{best_thr:.2f}")
-                col_thr2.metric("Precision", f"{best_thr_result['precision']:.3f}")
-                col_thr3.metric("Recall", f"{best_thr_result['recall']:.3f}")
-                
-                y_pred = (y_proba >= best_thr).astype(int)
-            else:
-                st.warning(f"Recall >= {target_recall} sağlayan threshold bulunamadı. Default 0.50 kullanılıyor.")
-                best_thr = 0.50
-                y_pred = (y_proba >= best_thr).astype(int)
-            
-            st.divider()
-            
-            # Performans metrikleri
-            st.subheader("📊 Model Performansı")
-            
+            # Performans Metrikleri
+            st.subheader("📊 Final Model Performansı")
             col_perf1, col_perf2 = st.columns(2)
             
             with col_perf1:
                 st.markdown("**Confusion Matrix**")
-                cm = confusion_matrix(y_test, y_pred)
+                cm = confusion_matrix(results['y_test'], results['y_pred'])
                 fig_cm, ax_cm = plt.subplots(figsize=(6, 5))
                 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm,
                            xticklabels=['No', 'Yes'], yticklabels=['No', 'Yes'])
-                ax_cm.set_xlabel('Tahmin')
-                ax_cm.set_ylabel('Gerçek')
-                ax_cm.set_title('Confusion Matrix')
                 st.pyplot(fig_cm)
             
             with col_perf2:
                 st.markdown("**ROC Curve**")
-                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                fpr, tpr, _ = roc_curve(results['y_test'], results['y_proba'])
                 roc_auc = auc(fpr, tpr)
-                
                 fig_roc, ax_roc = plt.subplots(figsize=(6, 5))
                 ax_roc.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC (AUC = {roc_auc:.3f})')
-                ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--', label='Random')
-                ax_roc.set_xlabel('False Positive Rate')
-                ax_roc.set_ylabel('True Positive Rate')
-                ax_roc.set_title('ROC Curve')
+                ax_roc.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
                 ax_roc.legend()
-                ax_roc.grid(True, alpha=0.3)
                 st.pyplot(fig_roc)
             
-            # Classification report
             st.markdown("**Classification Report**")
-            report = classification_report(y_test, y_pred, target_names=['No', 'Yes'], output_dict=True)
-            report_df = pd.DataFrame(report).transpose()
-            st.dataframe(report_df.style.background_gradient(cmap='RdYlGn').format('{:.3f}'))
+            report = classification_report(results['y_test'], results['y_pred'], target_names=['No', 'Yes'], output_dict=True)
+            st.dataframe(pd.DataFrame(report).transpose().style.background_gradient(cmap='RdYlGn').format('{:.3f}'))
             
-            # Feature importance
             st.subheader("🔥 Feature Importance")
-            
-            if hasattr(final_model, 'feature_importances_'):
-                importances = final_model.feature_importances_
-                feature_imp = pd.Series(importances, index=X_train.columns).sort_values(ascending=False).head(20)
-                
+            if hasattr(results['model'], 'feature_importances_'):
+                importances = results['model'].feature_importances_
+                feature_imp = pd.Series(importances, index=results['X_train'].columns).sort_values(ascending=False).head(20)
                 fig_imp, ax_imp = plt.subplots(figsize=(10, 8))
                 sns.barplot(x=feature_imp.values, y=feature_imp.index, palette='viridis', ax=ax_imp)
-                ax_imp.set_xlabel('Importance')
-                ax_imp.set_ylabel('Feature')
-                ax_imp.set_title('Top 20 Feature Importance')
                 st.pyplot(fig_imp)
-            elif hasattr(final_model, 'coef_'):
-                importances = final_model.coef_[0]
-                feature_imp = pd.DataFrame({'Feature': X_train.columns, 'Coef': importances})
-                feature_imp["Odds_Ratio"] = np.exp(feature_imp["Coef"])
-                feature_imp['Abs_Coef'] = feature_imp['Coef'].abs()
-                feature_imp = feature_imp.sort_values(by='Abs_Coef', ascending=False).head(20)
-                
-                fig_imp, ax_imp = plt.subplots(figsize=(10, 8))
-                sns.barplot(x='Coef', y='Feature', data=feature_imp, palette='coolwarm', ax=ax_imp)
-                ax_imp.axvline(0, color='black', linestyle='--')
-                ax_imp.set_title('Top 20 Feature Coefficients')
-                st.pyplot(fig_imp)
-            
-            # Session state'e kaydet
-            st.session_state['final_model'] = final_model
-            st.session_state['scaler_model'] = scaler_model
-            st.session_state['X_columns'] = X_train.columns.tolist()
-            st.session_state['y_proba_test'] = y_proba
-            st.session_state['y_test'] = y_test
-            st.session_state['best_model_name'] = best_model_name
-    
-    else:
-        st.info("👆 Modeli eğitmek için yukarıdaki butona tıklayın.")
 
 # =============================================================================
 # TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
 with tab_comp:
-    st.header("🔄 Detaylı Model Karşılaştırması")
+    st.header("📄 Detaylı Model Karşılaştırması")
     
-    if st.button("🚀 Tüm Modelleri Karşılaştır"):
-        with st.spinner("Modeller karşılaştırılıyor..."):
-            
-            # Veri hazırlığı (Model eğitimi sekmesindeki gibi)
-            # Conditional probabilities
-            probs_cat = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "CATEGORY", smoothing=1.0)
-            df_eng_train_temp = df_eng_train.copy()
-            df_eng_test_temp = df_eng_test.copy()
-            
-            df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_cat, "CLIMATE_GROUP_NEW", "CATEGORY")
-            df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            probs_size = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SIZE", smoothing=1.0)
-            df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_size, "CLIMATE_GROUP_NEW", "SIZE")
-            df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            probs_season = fit_conditional_probs(df_eng_train, "CLIMATE_GROUP_NEW", "SEASON", smoothing=1.0)
-            df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_train_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"] = map_conditional_probs(df_eng_test_temp, probs_season, "CLIMATE_GROUP_NEW", "SEASON")
-            df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"].fillna(df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"].mean(), inplace=True)
-            
-            df_eng_train_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_train_temp["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_train_temp["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_train_temp["P_SEASON_given_CLIMATE_NEW"]
-            )
-            df_eng_test_temp["CLIMATE_ITEM_FIT_SCORE_NEW"] = (
-                df_eng_test_temp["P_CATEGORY_given_CLIMATE_NEW"] *
-                df_eng_test_temp["P_SIZE_given_CLIMATE_NEW"] *
-                df_eng_test_temp["P_SEASON_given_CLIMATE_NEW"]
-            )
-            
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CATEGORY", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_CAT_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "PURCHASE_AMOUNT_(USD)", "PURCHASE_AMT_REL_CLIMATE_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "AGE_NEW", "PURCHASE_AMOUNT_(USD)", "REL_SPEND_AGE_NEW", "global_mean")
-            df_eng_train_temp, df_eng_test_temp = add_group_mean_ratio(df_eng_train_temp, df_eng_test_temp, "CLIMATE_GROUP_NEW", "FREQUENCY_VALUE_NEW", "REL_FREQ_CLIMATE_NEW", "global_mean")
-            
-            drop_cols = [
-                'CUSTOMER_ID','SUBSCRIPTION_STATUS', 'ITEM_PURCHASED', 'LOCATION', 'COLOR', 'SIZE',
-                'FREQUENCY_OF_PURCHASES', 'PAYMENT_METHOD', 'SHIPPING_TYPE',
-                'PURCHASE_AMOUNT_(USD)', 'PREVIOUS_PURCHASES', 'REVIEW_RATING',
-                'AGE', 'DISCOUNT_APPLIED', 'SEASON', 'PROMO_CODE_USED'
-            ]
-            
-            X_train_df_comp, X_test_df_comp = encode_train_test(df_eng_train_temp, df_eng_test_temp, drop_cols)
-            
-            y_train_comp = (df_eng_train_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            y_test_comp = (df_eng_test_temp["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
-            
-            leak_prefixes = ("SUB_FREQ_NEW", "PROMO_NO_SUB_NEW", "SHIP_SUB_NEW")
-            leakage_cols = [c for c in X_train_df_comp.columns if c.startswith(leak_prefixes)]
-            
-            X_train_base_comp = X_train_df_comp.drop(columns=leakage_cols, errors="ignore")
-            X_test_base_comp = X_test_df_comp.drop(columns=leakage_cols, errors="ignore")
-            
-            rf_selector = RandomForestClassifier(n_estimators=200, random_state=42, n_jobs=-1, class_weight="balanced")
-            rf_selector.fit(X_train_base_comp, y_train_comp)
-            
-            importances = pd.Series(rf_selector.feature_importances_, index=X_train_base_comp.columns).sort_values(ascending=False)
-            keep_cols = importances[importances >= 0.01].index.tolist()
-            
-            X_train_comp = X_train_base_comp[keep_cols]
-            X_test_comp = X_test_base_comp[keep_cols]
-            
-            scaler_comp = StandardScaler()
-            X_train_s_comp = scaler_comp.fit_transform(X_train_comp)
-            X_test_s_comp = scaler_comp.transform(X_test_comp)
-            
-            # Model karşılaştırma
-            models = {
-                'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
-                'Random Forest': RandomForestClassifier(n_estimators=200, max_depth=12, random_state=42, class_weight='balanced'),
-                'XGBoost': XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.1, random_state=42),
-                'LightGBM': LGBMClassifier(n_estimators=200, max_depth=8, learning_rate=0.1, random_state=42, verbose=-1)
-            }
-            
-            results = []
-            model_predictions = {}
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            for idx, (name, model) in enumerate(models.items()):
-                status_text.text(f"Eğitiliyor: {name}...")
-                
-                model.fit(X_train_s_comp, y_train_comp)
-                
-                if hasattr(model, 'predict_proba'):
-                    y_proba = model.predict_proba(X_test_s_comp)[:, 1]
-                else:
-                    y_proba = model.decision_function(X_test_s_comp)
-                
-                # Optimal threshold bulma
-                thresholds = np.linspace(0.05, 0.95, 19)
-                best_thr = 0.5
-                best_prec = 0
-                
-                for thr in thresholds:
-                    y_pred_temp = (y_proba >= thr).astype(int)
-                    rec = recall_score(y_test_comp, y_pred_temp, zero_division=0)
-                    prec = precision_score(y_test_comp, y_pred_temp, zero_division=0)
-                    if rec >= 0.80 and prec > best_prec:
-                        best_thr = thr
-                        best_prec = prec
-                
-                y_pred = (y_proba >= best_thr).astype(int)
-                
-                acc = accuracy_score(y_test_comp, y_pred)
-                prec = precision_score(y_test_comp, y_pred, zero_division=0)
-                rec = recall_score(y_test_comp, y_pred, zero_division=0)
-                f1 = f1_score(y_test_comp, y_pred, zero_division=0)
-                roc_auc = roc_auc_score(y_test_comp, y_proba)
-                
-                results.append({
-                    'Model': name,
-                    'Accuracy': acc,
-                    'Precision': prec,
-                    'Recall': rec,
-                    'F1-Score': f1,
-                    'ROC-AUC': roc_auc,
-                    'Threshold': best_thr
-                })
-                
-                model_predictions[name] = {
-                    'y_proba': y_proba,
-                    'y_pred': y_pred,
-                    'threshold': best_thr
-                }
-                
-                progress_bar.progress((idx + 1) / len(models))
-            
-            status_text.text("✅ Tüm modeller karşılaştırıldı!")
-            st.session_state['comparison_results'] = results
-            st.session_state['comparison_predictions'] = model_predictions
-            st.session_state['y_test_comp'] = y_test_comp
-        
-        st.success("Karşılaştırma tamamlandı!")
-    
-    if 'comparison_results' in st.session_state and st.session_state['comparison_results']:
-        results_df = pd.DataFrame(st.session_state['comparison_results'])
-        
-        st.subheader("📊 Model Performans Tablosu")
-        st.dataframe(results_df.style.background_gradient(cmap='RdYlGn', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']).format({
-            'Accuracy': '{:.4f}',
-            'Precision': '{:.4f}',
-            'Recall': '{:.4f}',
-            'F1-Score': '{:.4f}',
-            'ROC-AUC': '{:.4f}',
-            'Threshold': '{:.2f}'
+    if 'model_results' in st.session_state:
+        st.subheader("📊 Cross-Validation Sonuçları")
+        st.dataframe(st.session_state['model_results'].style.background_gradient(cmap='Greens', subset=['CV AUC Mean']).format({
+            'CV AUC Mean': '{:.4f}',
+            'Std Dev': '{:.4f}'
         }))
-        
-        best_model_name = results_df.loc[results_df['F1-Score'].idxmax(), 'Model']
-        st.success(f"🏆 **En İyi Model (F1-Score):** {best_model_name}")
-        
-        st.divider()
-        
-        # Karşılaştırma grafikleri
-        st.subheader("📈 Model Karşılaştırma Grafikleri")
-        
-        col_c1, col_c2 = st.columns(2)
-        
-        with col_c1:
-            st.markdown("**Metrik Karşılaştırması**")
-            fig_comp1, ax_comp1 = plt.subplots(figsize=(10, 6))
-            metrics_to_plot = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC']
-            x = np.arange(len(results_df['Model']))
-            width = 0.15
-            
-            for i, metric in enumerate(metrics_to_plot):
-                ax_comp1.bar(x + i*width, results_df[metric], width, label=metric)
-            
-            ax_comp1.set_xlabel('Model')
-            ax_comp1.set_ylabel('Score')
-            ax_comp1.set_title('Model Performance Comparison')
-            ax_comp1.set_xticks(x + width * 2)
-            ax_comp1.set_xticklabels(results_df['Model'], rotation=45, ha='right')
-            ax_comp1.legend()
-            ax_comp1.grid(True, alpha=0.3, axis='y')
-            plt.tight_layout()
-            st.pyplot(fig_comp1)
-        
-        with col_c2:
-            st.markdown("**ROC Curves Karşılaştırması**")
-            fig_roc_comp, ax_roc_comp = plt.subplots(figsize=(10, 6))
-            
-            for name, preds in st.session_state['comparison_predictions'].items():
-                fpr, tpr, _ = roc_curve(st.session_state['y_test_comp'], preds['y_proba'])
-                roc_auc_val = auc(fpr, tpr)
-                ax_roc_comp.plot(fpr, tpr, lw=2, label=f'{name} (AUC = {roc_auc_val:.2f})')
-            
-            ax_roc_comp.plot([0, 1], [0, 1], 'k--', lw=2, label='Random')
-            ax_roc_comp.set_xlabel('False Positive Rate')
-            ax_roc_comp.set_ylabel('True Positive Rate')
-            ax_roc_comp.set_title('ROC Curves Comparison')
-            ax_roc_comp.legend(loc='lower right')
-            ax_roc_comp.grid(True, alpha=0.3)
-            st.pyplot(fig_roc_comp)
-        
-        # Confusion Matrices
-        st.subheader("🎯 Confusion Matrices")
-        
-        num_models = len(st.session_state['comparison_predictions'])
-        cols_cm = st.columns(num_models)
-        
-        for idx, (name, preds) in enumerate(st.session_state['comparison_predictions'].items()):
-            with cols_cm[idx]:
-                st.markdown(f"**{name}**")
-                cm = confusion_matrix(st.session_state['y_test_comp'], preds['y_pred'])
-                fig_cm_small, ax_cm_small = plt.subplots(figsize=(4, 3))
-                sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax_cm_small,
-                           xticklabels=['No', 'Yes'], yticklabels=['No', 'Yes'], cbar=False)
-                ax_cm_small.set_xlabel('Pred')
-                ax_cm_small.set_ylabel('True')
-                st.pyplot(fig_cm_small)
+        st.info("ℹ️ Bu sonuçlar eğitim aşamasında otomatik olarak hesaplanmıştır.")
     else:
-        st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
-    
-    # Threshold analysis (eğer model eğitildiyse)
-    if 'final_model' in st.session_state and st.session_state['final_model'] is not None:
-        if 'y_proba_test' in st.session_state:
-            st.divider()
-            st.subheader("📈 Aktif Model Threshold Analizi")
-            
-            y_proba = st.session_state['y_proba_test']
-            y_test = st.session_state['y_test']
-            
-            thresholds = np.linspace(0.05, 0.95, 19)
-            threshold_results = []
-            
-            for thr in thresholds:
-                y_pred_thr = (y_proba >= thr).astype(int)
-                threshold_results.append({
-                    'Threshold': thr,
-                    'Precision': precision_score(y_test, y_pred_thr, zero_division=0),
-                    'Recall': recall_score(y_test, y_pred_thr, zero_division=0),
-                    'F1-Score': f1_score(y_test, y_pred_thr, zero_division=0)
-                })
-            
-            thr_df = pd.DataFrame(threshold_results)
-            
-            fig_thr, ax_thr = plt.subplots(figsize=(12, 6))
-            ax_thr.plot(thr_df['Threshold'], thr_df['Precision'], 'b-o', label='Precision', linewidth=2)
-            ax_thr.plot(thr_df['Threshold'], thr_df['Recall'], 'r-s', label='Recall', linewidth=2)
-            ax_thr.plot(thr_df['Threshold'], thr_df['F1-Score'], 'g-^', label='F1-Score', linewidth=2)
-            ax_thr.axvline(st.session_state['best_threshold'], color='orange', linestyle='--', linewidth=2, 
-                          label=f"Optimal: {st.session_state['best_threshold']:.2f}")
-            ax_thr.set_xlabel('Threshold')
-            ax_thr.set_ylabel('Score')
-            ax_thr.set_title('Threshold vs Performance Metrics')
-            ax_thr.legend()
-            ax_thr.grid(True, alpha=0.3)
-            st.pyplot(fig_thr)
+        st.warning("⚠️ Lütfen önce 'Model Eğitimi' sekmesinden süreci başlatın.")
 
 # =============================================================================
 # TAB 5: CRM ANALİZİ
@@ -1274,12 +837,9 @@ with tab_crm:
     
     if 'final_model' in st.session_state and st.session_state['final_model'] is not None and 'df_report' in st.session_state:
         
-        # Tüm veri için tahmin
         st.subheader("📊 Segment Bazlı Abonelik Tahmini")
-        
         df_report = st.session_state['df_report']
         
-        # Her segment için detaylı analiz
         crm_summary = df_report.groupby('Cluster').agg({
             'CUSTOMER_ID': 'count',
             'SUBSCRIPTION_STATUS': lambda x: (x == 'Yes').mean(),
@@ -1291,17 +851,21 @@ with tab_crm:
         
         crm_summary.columns = ['n_customers', 'crm_target_rate', 'avg_spend', 'avg_prev_purchases', 'avg_freq', 'promo_rate']
         
-        # CRM Aksiyon Belirleme Fonksiyonu
+        spend_median = crm_summary["avg_spend"].median()
+        target_mean = crm_summary["crm_target_rate"].mean()
+        
         def crm_action(row):
-            if row["crm_target_rate"] >= 0.6 and row["avg_spend"] >= crm_summary["avg_spend"].median():
+            if row["crm_target_rate"] >= target_mean and row["avg_spend"] >= spend_median:
                 return "Upsell / Premium teklif"
-            if row["crm_target_rate"] >= 0.4:
-                return "Nurture / içerik + reminder"
-            return "Winback / agresif promosyon"
+            elif row["crm_target_rate"] >= target_mean:
+                return "Quick win / light incentive"
+            elif row["crm_target_rate"] < target_mean and row["avg_spend"] >= spend_median:
+                return "Retention / özel ilgi"
+            else:
+                return "Winback / agresif promosyon"
         
         crm_summary['action'] = crm_summary.apply(crm_action, axis=1)
         
-        # Segment isimlerini ekle
         if 'profile' in st.session_state:
             profile = st.session_state['profile']
             segment_names = profile['Segment İsmi'].to_dict()
@@ -1309,7 +873,6 @@ with tab_crm:
             crm_summary = crm_summary[['Segment İsmi', 'n_customers', 'crm_target_rate', 'avg_spend', 
                                        'avg_prev_purchases', 'avg_freq', 'promo_rate', 'action']]
         
-        # Türkçe kolon isimleri
         crm_summary_display = crm_summary.rename(columns={
             'Segment İsmi': 'Segment',
             'n_customers': 'Müşteri Sayısı',
@@ -1323,6 +886,7 @@ with tab_crm:
         
         crm_summary_display['Abonelik Oranı'] = (crm_summary_display['Abonelik Oranı'] * 100).round(1)
         crm_summary_display['Promo Kullanım'] = (crm_summary_display['Promo Kullanım'] * 100).round(1)
+        crm_summary_display = crm_summary_display.sort_values('Abonelik Oranı', ascending=False)
         
         st.dataframe(crm_summary_display.style.background_gradient(
             cmap='RdYlGn', 
@@ -1336,16 +900,13 @@ with tab_crm:
         }))
         
         st.divider()
-        
-        # Aksiyon Öncelik Grafiği
         st.subheader("🎯 Aksiyon Öncelik Matrisi")
         
         fig_matrix, ax_matrix = plt.subplots(figsize=(12, 8))
-        
-        # Scatter plot: X = Abonelik Oranı, Y = Ortalama Harcama
         colors_map = {
             'Upsell / Premium teklif': '#28a745',
-            'Nurture / içerik + reminder': '#ffc107',
+            'Quick win / light incentive': '#17a2b8',
+            'Retention / özel ilgi': '#ff8c00',
             'Winback / agresif promosyon': '#dc3545'
         }
         
@@ -1354,7 +915,7 @@ with tab_crm:
             ax_matrix.scatter(
                 crm_summary[mask]['crm_target_rate'] * 100,
                 crm_summary[mask]['avg_spend'],
-                s=crm_summary[mask]['n_customers'] * 2,  # Müşteri sayısına göre boyut
+                s=crm_summary[mask]['n_customers'] * 2,
                 c=colors_map.get(action, '#999999'),
                 label=action,
                 alpha=0.6,
@@ -1362,108 +923,14 @@ with tab_crm:
                 linewidth=2
             )
         
-        # Eşik çizgileri
-        ax_matrix.axvline(60, color='green', linestyle='--', linewidth=1, alpha=0.5, label='%60 Abonelik Eşiği')
-        ax_matrix.axvline(40, color='orange', linestyle='--', linewidth=1, alpha=0.5, label='%40 Abonelik Eşiği')
-        ax_matrix.axhline(crm_summary['avg_spend'].median(), color='blue', linestyle='--', linewidth=1, alpha=0.5, label='Medyan Harcama')
-        
-        ax_matrix.set_xlabel('Abonelik Oranı (%)', fontsize=12)
-        ax_matrix.set_ylabel('Ortalama Harcama ($)', fontsize=12)
-        ax_matrix.set_title('CRM Aksiyon Öncelik Matrisi (Balon Boyutu = Müşteri Sayısı)', fontsize=14)
-        ax_matrix.legend(loc='best')
-        ax_matrix.grid(True, alpha=0.3)
+        ax_matrix.axvline(target_mean * 100, color='purple', linestyle='--', linewidth=1.5, alpha=0.6)
+        ax_matrix.axhline(spend_median, color='blue', linestyle='--', linewidth=1.5, alpha=0.6)
+        ax_matrix.set_xlabel('Abonelik Oranı (%)')
+        ax_matrix.set_ylabel('Ortalama Harcama ($)')
+        ax_matrix.set_title('CRM Aksiyon Öncelik Matrisi')
+        ax_matrix.legend()
         st.pyplot(fig_matrix)
-        
-        st.divider()
-        
-        # CRM Stratejileri - Detaylı
-        st.subheader("📋 Segment Bazlı Detaylı CRM Stratejileri")
-        
-        # Aksiyon türüne göre gruplama
-        action_groups = {
-            'Upsell / Premium teklif': '🟢 Yüksek Değerli - Premium Odaklı',
-            'Nurture / içerik + reminder': '🟡 Gelişim Potansiyeli - Eğitim Odaklı',
-            'Winback / agresif promosyon': '🔴 Risk Altında - Kazanım Odaklı'
-        }
-        
-        for action_type, action_title in action_groups.items():
-            segments_in_action = crm_summary[crm_summary['action'] == action_type]
-            
-            if len(segments_in_action) > 0:
-                with st.expander(f"{action_title} ({len(segments_in_action)} Segment)", expanded=True):
-                    
-                    for idx, row in segments_in_action.iterrows():
-                        segment_name = row.get('Segment İsmi', f'Cluster {idx}')
-                        
-                        st.markdown(f"### 📌 {segment_name}")
-                        
-                        col_crm1, col_crm2, col_crm3 = st.columns(3)
-                        
-                        with col_crm1:
-                            st.metric("Müşteri Sayısı", f"{row['n_customers']:.0f}")
-                            st.metric("Abonelik Oranı", f"{row['crm_target_rate']*100:.1f}%")
-                        
-                        with col_crm2:
-                            st.metric("Ort. Harcama", f"${row['avg_spend']:.2f}")
-                            st.metric("Ort. Alışveriş", f"{row['avg_prev_purchases']:.1f}")
-                        
-                        with col_crm3:
-                            st.metric("Ort. Frekans", f"{row['avg_freq']:.1f}")
-                            st.metric("Promo Kullanım", f"{row['promo_rate']*100:.1f}%")
-                        
-                        st.markdown("**🎯 Önerilen Aksiyonlar:**")
-                        
-                        if action_type == 'Upsell / Premium teklif':
-                            st.success("✅ **Premium Strateji**")
-                            st.write("• VIP üyelik programı ve özel avantajlar sun")
-                            st.write("• Exclusive ürün erişimi ve erken lansman duyuruları")
-                            st.write("• Kişiselleştirilmiş alışveriş deneyimi")
-                            st.write("• Ücretsiz premium kargo ve öncelikli müşteri hizmetleri")
-                            
-                        elif action_type == 'Nurture / içerik + reminder':
-                            st.info("ℹ️ **Gelişim Stratejisi**")
-                            st.write("• Eğitici içerik ve ürün kullanım rehberleri gönder")
-                            st.write("• Düzenli e-mail kampanyaları ile engagement arttır")
-                            st.write("• Sepet hatırlatıcıları ve kişiselleştirilmiş öneriler")
-                            st.write("• Sınırlı süreli teklifler ve ilk alışveriş indirimleri")
-                            
-                        else:  # Winback
-                            st.warning("⚠️ **Geri Kazanım Stratejisi**")
-                            st.write("• Agresif promosyon kampanyaları (%40-50 indirim)")
-                            st.write("• 'Seni özledik' mesajları ile kişisel iletişim")
-                            st.write("• Müşteri memnuniyeti anketi ve geri bildirim toplama")
-                            st.write("• Yeniden aktivasyon bonusu ve sadakat puanları")
-                        
-                        st.divider()
-        
-        st.divider()
-        
-        # Özet İstatistikler
-        st.subheader("📈 CRM Strateji Özeti")
-        
-        summary_col1, summary_col2, summary_col3 = st.columns(3)
-        
-        with summary_col1:
-            premium_count = len(crm_summary[crm_summary['action'] == 'Upsell / Premium teklif'])
-            premium_customers = crm_summary[crm_summary['action'] == 'Upsell / Premium teklif']['n_customers'].sum()
-            st.success(f"**🟢 Premium Segment**")
-            st.metric("Segment Sayısı", premium_count)
-            st.metric("Toplam Müşteri", f"{premium_customers:.0f}")
-        
-        with summary_col2:
-            nurture_count = len(crm_summary[crm_summary['action'] == 'Nurture / içerik + reminder'])
-            nurture_customers = crm_summary[crm_summary['action'] == 'Nurture / içerik + reminder']['n_customers'].sum()
-            st.info(f"**🟡 Gelişim Segment**")
-            st.metric("Segment Sayısı", nurture_count)
-            st.metric("Toplam Müşteri", f"{nurture_customers:.0f}")
-        
-        with summary_col3:
-            winback_count = len(crm_summary[crm_summary['action'] == 'Winback / agresif promosyon'])
-            winback_customers = crm_summary[crm_summary['action'] == 'Winback / agresif promosyon']['n_customers'].sum()
-            st.warning(f"**🔴 Risk Segment**")
-            st.metric("Segment Sayısı", winback_count)
-            st.metric("Toplam Müşteri", f"{winback_customers:.0f}")
-    
+
     else:
         st.warning("⚠️ CRM analizi için önce modeli eğitmelisiniz.")
 
@@ -1488,35 +955,21 @@ with tab_sim:
             loc = c2.selectbox("Lokasyon", df_raw['LOCATION'].unique())
             promo = c3.selectbox("Promosyon Kullandı mı?", ["Yes", "No"])
             
-            item = df_raw['ITEM_PURCHASED'].mode()[0]
-            color = df_raw['COLOR'].mode()[0]
-            size = df_raw['SIZE'].mode()[0]
-            season = df_raw['SEASON'].mode()[0]
-            pay = df_raw['PAYMENT_METHOD'].mode()[0]
-            ship = df_raw['SHIPPING_TYPE'].mode()[0]
-            
             btn = st.form_submit_button("🔮 Tahmin Et")
         
         if btn:
             try:
-                # Basitleştirilmiş feature'lar (qcut/cut kullanmadan)
                 freq_map = {'Weekly': 52, 'Bi-Weekly': 26, 'Fortnightly': 26, 'Quarterly': 4, 'Annually': 1, 'Monthly': 12, 'Every 3 Months': 4}
                 freq_val = freq_map.get(freq, 12)
                 
                 total_spend = prev * spend
                 spend_per_purchase = spend / (prev + 1)
                 
-                # Loyalty score basit hesaplama
-                if prev < 13:
-                    loyalty_score = 1
-                elif prev < 25:
-                    loyalty_score = 2
-                elif prev < 38:
-                    loyalty_score = 3
-                else:
-                    loyalty_score = 4
+                if prev < 13: loyalty_score = 1
+                elif prev < 25: loyalty_score = 2
+                elif prev < 38: loyalty_score = 3
+                else: loyalty_score = 4
                 
-                # Basit feature dictionary
                 simple_features = {
                     'TOTAL_SPEND_WEIGHTED_NEW': total_spend,
                     'SPEND_PER_PURCHASE_NEW': spend_per_purchase,
@@ -1528,7 +981,6 @@ with tab_sim:
                     'PROMO_X_FREQ': (1 if promo == 'Yes' else 0) * freq_val
                 }
                 
-                # Gender encoding
                 if gender == 'Male':
                     simple_features['GENDER_Male'] = 1
                     simple_features['GENDER_Female'] = 0
@@ -1536,70 +988,55 @@ with tab_sim:
                     simple_features['GENDER_Male'] = 0
                     simple_features['GENDER_Female'] = 1
                 
-                # Category one-hot encoding
                 categories = df_raw['CATEGORY'].unique()
                 for category in categories:
                     simple_features[f'CATEGORY_{category}'] = 1 if cat == category else 0
                 
-                # DataFrame oluştur
                 feature_df = pd.DataFrame([simple_features])
                 
-                # Model'in beklediği tüm kolonları ekle
                 X_columns = st.session_state['X_columns']
                 for col in X_columns:
                     if col not in feature_df.columns:
                         feature_df[col] = 0
                 
-                # Sıralamayı düzenle
                 feature_df = feature_df[X_columns]
                 
-                # Scale et
                 scaler_model = st.session_state['scaler_model']
                 user_scaled = scaler_model.transform(feature_df)
                 
-                # Tahmin
                 final_model = st.session_state['final_model']
-                prob = final_model.predict_proba(user_scaled)[0][1]
+                if hasattr(final_model, 'predict_proba'):
+                    prob = final_model.predict_proba(user_scaled)[0][1]
+                else:
+                    prob = final_model.decision_function(user_scaled)[0] 
                 
-                # Cluster tahmini
                 predicted_cluster = None
                 segment_name = "Bilinmiyor"
                 
                 if 'kmeans' in st.session_state and 'scaler_seg' in st.session_state:
                     try:
                         segmentation_features = np.array([[
-                            total_spend,      # TOTAL_SPEND_WEIGHTED_NEW
-                            prev,             # PREVIOUS_PURCHASES
-                            freq_val,         # FREQUENCY_VALUE_NEW
-                            spend_per_purchase,  # SPEND_PER_PURCHASE_NEW
-                            total_spend       # TOTAL_SPEND_WEIGHTED_NEW (tekrar)
+                            total_spend, prev, freq_val, spend_per_purchase, total_spend
                         ]])
-                        
                         user_seg_scaled = st.session_state['scaler_seg'].transform(segmentation_features)
                         predicted_cluster = st.session_state['kmeans'].predict(user_seg_scaled)[0]
-                        
                         profile = st.session_state['profile']
                         segment_name = profile.loc[predicted_cluster, 'Segment İsmi']
-                    except Exception as e:
-                        st.warning(f"Cluster tahmini yapılamadı: {str(e)}")
+                    except:
+                        pass
                 
                 thr = st.session_state['best_threshold']
                 
                 st.divider()
-                
-                # 3 kolonlu layout
                 col_r1, col_r2, col_r3 = st.columns([1, 1, 1.5])
                 
                 with col_r1:
                     st.subheader("🎯 Abonelik Tahmini")
                     if prob >= thr:
                         st.success(f"### ✅ ABONE OLUR")
-                        st.metric("İhtimal", f"%{prob*100:.1f}")
                     else:
                         st.error(f"### ❌ ABONE OLMAZ")
-                        st.metric("İhtimal", f"%{prob*100:.1f}")
-                    
-                    st.caption(f"Threshold: %{thr*100:.0f}")
+                    st.metric("İhtimal", f"%{prob*100:.1f}")
                     st.progress(prob)
                 
                 with col_r2:
@@ -1607,75 +1044,11 @@ with tab_sim:
                     if predicted_cluster is not None:
                         st.info(f"### Cluster {predicted_cluster}")
                         st.success(f"**{segment_name}**")
-                        
-                        # Cluster istatistikleri
-                        if 'segment_sub_rate' in st.session_state:
-                            segment_sub_rate = st.session_state['segment_sub_rate']
-                            if predicted_cluster in segment_sub_rate.index:
-                                cluster_info = segment_sub_rate.loc[predicted_cluster]
-                                st.metric("Segment Abonelik Oranı", f"{cluster_info['Abonelik Oranı']:.1f}%")
-                                st.metric("Segment Müşteri Sayısı", f"{cluster_info['Müşteri Sayısı']:.0f}")
-                    else:
-                        st.warning("Segment tahmini yapılamadı")
                 
                 with col_r3:
                     st.subheader("📋 Müşteri Profili")
-                    profile_col1, profile_col2 = st.columns(2)
-                    
-                    with profile_col1:
-                        st.write(f"👤 **Yaş:** {age}")
-                        st.write(f"🚹🚺 **Cinsiyet:** {gender}")
-                        st.write(f"📍 **Lokasyon:** {loc}")
-                        st.write(f"🛒 **Kategori:** {cat}")
-                    
-                    with profile_col2:
-                        st.write(f"💰 **Harcama:** ${spend}")
-                        st.write(f"📦 **Geçmiş Alışveriş:** {prev}")
-                        st.write(f"🔄 **Sıklık:** {freq}")
-                        st.write(f"⭐ **Rating:** {rating}")
-                    
-                    st.write(f"🎁 **Promosyon:** {promo}")
-                
-                st.divider()
-                
-                # Segment karşılaştırması
-                if predicted_cluster is not None and 'segment_sub_rate' in st.session_state:
-                    st.subheader("📊 Segment Profili ve Öneriler")
-                    
-                    comp_col1, comp_col2 = st.columns(2)
-                    
-                    with comp_col1:
-                        st.markdown(f"**Cluster {predicted_cluster} ({segment_name}) Profili:**")
-                        segment_sub_rate = st.session_state['segment_sub_rate']
-                        if predicted_cluster in segment_sub_rate.index:
-                            cluster_profile = segment_sub_rate.loc[predicted_cluster]
-                            st.write(f"• Ortalama Harcama: ${cluster_profile['Ort. Harcama']:.2f}")
-                            st.write(f"• Ortalama Alışveriş: {cluster_profile['Ort. Alışveriş Sayısı']:.1f}")
-                            st.write(f"• Ortalama Rating: {cluster_profile['Ort. Rating']:.2f}")
-                            st.write(f"• Abonelik Oranı: {cluster_profile['Abonelik Oranı']:.1f}%")
-                    
-                    with comp_col2:
-                        st.markdown("**🎯 Öneriler:**")
-                        
-                        if predicted_cluster in segment_sub_rate.index:
-                            cluster_info = segment_sub_rate.loc[predicted_cluster]
-                            
-                            if cluster_info['Abonelik Oranı'] < 40:
-                                st.warning("⚠️ Bu segment düşük abonelik oranına sahip")
-                                st.write("💡 Agresif abonelik kampanyası uygulayın")
-                            elif cluster_info['Abonelik Oranı'] < 60:
-                                st.info("ℹ️ Orta düzey abonelik potansiyeli")
-                                st.write("💡 Kişiselleştirilmiş teklifler sunun")
-                            else:
-                                st.success("✅ Yüksek abonelik potansiyeli")
-                                st.write("💡 Sadakat programı ile uzun vadeli bağ kurun")
-                            
-                            if prob >= thr and cluster_info['Abonelik Oranı'] >= 50:
-                                st.success("🎉 Hem model hem de segment abone olma olasılığı yüksek!")
-                            elif prob < thr and cluster_info['Abonelik Oranı'] < 40:
-                                st.error("⚠️ Hem model hem de segment düşük abonelik gösteriyor - Dikkatli yaklaşın")
+                    st.write(f"👤 **{age}** Yaş, **{gender}**, **{loc}**")
+                    st.write(f"💰 **${spend}** Harcama, **{prev}** Alışveriş")
             
             except Exception as e:
-                st.error(f"❌ Tahmin yapılırken hata oluştu: {str(e)}")
-                st.info("💡 Lütfen önce 'Model Eğitimi' sekmesinden modeli eğittiğinizden emin olun.")
-                st.code(f"Detay: {str(e)}")  # Debug için
+                st.error(f"Hata: {str(e)}")
