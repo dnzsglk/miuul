@@ -501,7 +501,7 @@ with tab_eda:
     col1.metric("Müşteri Sayısı", df_raw.shape[0])
     col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
     col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
-    col4.metric("Ortalama Harcama", f"${df_raw['PURCHASE_AMOUNT_(USD)'].mean():.1f}")
+    col4.metric("Ortalama Harcama", f"${df_eng['TOTAL_SPEND_WEIGHTED_NEW'].mean():.1f}")
 
     st.divider()
 
