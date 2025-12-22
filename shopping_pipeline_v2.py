@@ -402,21 +402,19 @@ with tab_eda:
         st.pyplot(fig1)
         plt.close(fig1)  # ✅ iyi pratik
 
-    with col2:
+# 405. satırda 'with' bloğu başlıyor
+with col2:
+    # Bu satır ve altındakiler MUTLAKA içeride (indentli) olmalı
     st.markdown("*Kategori Bazlı Abonelik Oranları*")
     fig2, ax2 = plt.subplots(figsize=(8, 5))
     
-    # Veriyi hazırlama
     category_sub = (
         df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
         .apply(lambda x: (x == 'Yes').mean() * 100)
         .sort_values()
     )
-
-    # RENK DEĞİŞİKLİĞİ BURADA:
-    # y=category_sub.index (Kategoriler)
-    # hue=category_sub.index (Her kategoriye ayrı renk verir)
-    # palette='viridis' (Hazır bir renk paleti seçtik: viridis, rocket, deep, set2 vb. deneyebilirsin)
+    
+    # Renkli barplot (Her kategori farklı renk)
     sns.barplot(
         x=category_sub.values, 
         y=category_sub.index, 
@@ -433,6 +431,7 @@ with tab_eda:
     
     st.pyplot(fig2)
     plt.close(fig2)
+    
     # === 2. SATIR ===
     col3, col4 = st.columns(2)
 
