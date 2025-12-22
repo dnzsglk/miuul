@@ -525,7 +525,7 @@ with tab_eda:
         st.pyplot(fig1)
         plt.close(fig1)  # ✅ iyi pratik
 
-   with col2:
+    with col2:
         st.markdown("*Kategori Bazlı Abonelik Oranları*")
         fig2, ax2 = plt.subplots(figsize=(8, 5))
         category_sub = (
