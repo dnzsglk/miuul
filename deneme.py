@@ -581,7 +581,6 @@ with tab_eda:
 with tab_seg:
     st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
 
-    # 1) Segmentasyon feature set
     segmentation_features = [
         "PURCHASE_AMOUNT_(USD)",
         "PREVIOUS_PURCHASES",
@@ -593,34 +592,84 @@ with tab_seg:
     X_seg = df_eng[[c for c in segmentation_features if c in df_eng.columns]].copy()
     X_seg.fillna(0, inplace=True)
 
-    # 2) Scale + KMeans
     scaler_seg = StandardScaler()
     X_scaled = scaler_seg.fit_transform(X_seg)
 
-    # (İstersen optimal_k hesabın burada olacak)
-    optimal_k = 5  # senin çıktın 0..4 olduğu için şimdilik sabitle (istersen elbow ile değiştirirsin)
-
+    # ✅ Senin çıktın 5 cluster (0..4) → K=5
+    optimal_k = 5
     kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
     clusters = kmeans.fit_predict(X_scaled)
+    sil_score = silhouette_score(X_scaled, clusters)
 
-    # 3) Session state'e kaydet (kritik)
-    st.session_state["clusters"] = clusters
+    # Session state'e kaydet
     st.session_state["kmeans"] = kmeans
     st.session_state["scaler_seg"] = scaler_seg
+    st.session_state["clusters"] = clusters
+    st.session_state["optimal_k"] = optimal_k
 
-    # 4) Report dataframe
+    # Üst metrikler
+    m1, m2 = st.columns(2)
+    m1.metric("K (Cluster Sayısı)", optimal_k)
+    m2.metric("Silhouette Score", f"{sil_score:.3f}")
+
+    st.divider()
+
+    # --- GRAFİKLER (2D + 3D yan yana) ---
+    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
+    col_graph1, col_graph2 = st.columns(2)
+
+    with col_graph1:
+        pca = PCA(n_components=2, random_state=42)
+        comps = pca.fit_transform(X_scaled)
+        df_pca = pd.DataFrame(comps, columns=["PC1", "PC2"])
+        df_pca["Cluster"] = clusters
+
+        fig_pca, ax_pca = plt.subplots(figsize=(8, 7))
+        scatter = ax_pca.scatter(
+            df_pca["PC1"], df_pca["PC2"],
+            c=df_pca["Cluster"], cmap="viridis",
+            s=50, alpha=0.6, edgecolors="w"
+        )
+        plt.colorbar(scatter, ax=ax_pca, label="Cluster")
+        ax_pca.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)")
+        ax_pca.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)")
+        ax_pca.set_title("2D Segment Dağılımı")
+        ax_pca.grid(True, alpha=0.25)
+        st.pyplot(fig_pca)
+        plt.close(fig_pca)
+
+    with col_graph2:
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+
+        pca3d = PCA(n_components=3, random_state=42)
+        comps3d = pca3d.fit_transform(X_scaled)
+        df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
+        df_pca3d["Cluster"] = clusters
+
+        fig_3d = plt.figure(figsize=(8, 7))
+        ax_3d = fig_3d.add_subplot(111, projection="3d")
+
+        scatter_3d = ax_3d.scatter(
+            df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
+            c=df_pca3d["Cluster"], cmap="viridis",
+            s=50, alpha=0.7, edgecolors="w"
+        )
+        ax_3d.set_title("3D Segment Dağılımı")
+        ax_3d.tick_params(axis="both", which="major", labelsize=8)
+        st.pyplot(fig_3d)
+        plt.close(fig_3d)
+
+    st.divider()
+
+    # --- Segment profilleri için df_report ---
     df_report = df_eng.copy()
-    df_report["Cluster"] = st.session_state["clusters"]
-    st.session_state["df_report"] = df_report  # CRM tabında kullanacaksın
-
-    # ----------------------------------------------------------------
-    # ✅ Buradan itibaren SENİN "Segment Profilleri (Detaylı)" kodun gelir
-    # (df_report ve Cluster artık garanti var)
-    # ----------------------------------------------------------------
-
+    df_report["Cluster"] = clusters
     df_report["SUBSCRIPTION"] = (df_report["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
     df_report["PROMO_USED_VAL"] = (df_report["PROMO_CODE_USED"] == "Yes").astype(int)
 
+    st.session_state["df_report"] = df_report
+
+    # mode için güvenli fonksiyon
     def safe_mode(s):
         s = s.dropna()
         return s.mode().iloc[0] if len(s) else "Unknown"
@@ -636,7 +685,7 @@ with tab_seg:
         Kategori=("CATEGORY", safe_mode),
         Odeme=("PAYMENT_METHOD", safe_mode),
         Kargo=("SHIPPING_TYPE", safe_mode),
-        Ikim=("CLIMATE_GROUP_NEW", safe_mode) if "CLIMATE_GROUP_NEW" in df_report.columns else ("LOCATION", safe_mode),
+        Iklim=("CLIMATE_GROUP_NEW", safe_mode) if "CLIMATE_GROUP_NEW" in df_report.columns else ("LOCATION", safe_mode),
         Rating=("REVIEW_RATING", "mean"),
         Freq=("FREQUENCY_VALUE_NEW", "mean"),
         Promo_Pct=("PROMO_USED_VAL", "mean"),
@@ -645,30 +694,89 @@ with tab_seg:
         TotWght=("TOTAL_SPEND_WEIGHTED_NEW", "mean"),
     ).reset_index()
 
-    segment_profiles["Sub_Pct"] *= 100
-    segment_profiles["Promo_Pct"] *= 100
+    segment_profiles["Sub_Pct"] = segment_profiles["Sub_Pct"] * 100
+    segment_profiles["Promo_Pct"] = segment_profiles["Promo_Pct"] * 100
 
+    # ✅ Senin çıktına göre isim map’i
     cluster_name_map = {
-        3: "Premium Adayları",
-        0: "Upsell’e Açık Sadıklar",
-        2: "Yüksek Harcayan Şüpheciler",
         4: "Soğuyan Fırsatçılar",
-        1: "Düşük Değerli Geri Kazanım"
+        3: "Premium Adayları",
+        2: "Yüksek Harcayan Şüpheciler",
+        1: "Düşük Değerli Geri Kazanım",
+        0: "Upsell’e Açık Sadıklar",
     }
     segment_profiles["Segment İsmi"] = segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
 
     cluster_action_map = {
         3: "Upsell / Premium",
         0: "Upsell / Premium",
-        2: "Nurture / education",
-        4: "Winback / aggressive promo",
-        1: "Winback / aggressive promo"
+        2: "Nurture / Education",
+        4: "Winback / Aggressive Promo",
+        1: "Winback / Aggressive Promo",
     }
     segment_profiles["Önerilen Aksiyon"] = segment_profiles["Cluster"].map(cluster_action_map).fillna("Genel")
 
-    display_df = segment_profiles.sort_values("Cluster")
+    display_df = segment_profiles[[
+        "Cluster", "Segment İsmi", "N", "Yas", "Harcama_USD", "Sub_Pct",
+        "PrevPur", "Kategori", "Odeme", "Kargo", "FitScore", "RelSpend",
+        "Promo_Pct", "Iklim", "TotWght", "Rating", "Freq", "Önerilen Aksiyon"
+    ]].sort_values("Cluster")
 
-    st.dataframe(display_df)
+    st.dataframe(
+        display_df.style
+        .background_gradient(cmap="Blues", subset=["TotWght", "Sub_Pct", "Promo_Pct"])
+        .format({
+            "Yas": "{:.1f}",
+            "Harcama_USD": "{:.1f}",
+            "Sub_Pct": "{:.1f}%",
+            "PrevPur": "{:.1f}",
+            "FitScore": "{:.4f}",
+            "RelSpend": "{:.2f}",
+            "Promo_Pct": "{:.1f}%",
+            "TotWght": "{:.1f}",
+            "Rating": "{:.2f}",
+            "Freq": "{:.1f}",
+        })
+    )
+
+    st.divider()
+
+    # --- Playbook / expander ---
+    st.subheader("💡 Segment Bazlı Aksiyon Playbook")
+
+    for _, r in display_df.iterrows():
+        cl = int(r["Cluster"])
+        with st.expander(f"📌 Cluster {cl} — {r['Segment İsmi']} ({r['Önerilen Aksiyon']})"):
+            c1, c2, c3 = st.columns(3)
+
+            with c1:
+                st.metric("Müşteri", f"{r['N']:.0f}")
+                st.metric("Abonelik", f"{r['Sub_Pct']:.1f}%")
+
+            with c2:
+                st.metric("TotWght", f"{r['TotWght']:.1f}")
+                st.metric("Ort. Harcama", f"{r['Harcama_USD']:.1f}")
+
+            with c3:
+                st.metric("Promo", f"{r['Promo_Pct']:.1f}%")
+                st.metric("Frekans", f"{r['Freq']:.1f}")
+
+            if cl in [3, 0]:
+                st.success("✅ Upsell / Premium")
+                st.write("• Premium/Plus abonelik: ücretsiz kargo + özel kampanya erişimi")
+                st.write("• Checkout ve satın alma sonrası 1 tık abonelik önerisi")
+                st.write("• 30 gün deneme veya ilk 3 ay indirim (A/B test)")
+            elif cl == 2:
+                st.info("ℹ️ Nurture / Education")
+                st.write("• Tasarruf simülasyonu: 'Abone olsaydınız X₺ daha az öderdiniz'")
+                st.write("• Fayda anlatımı: fiyat değil, değer ve avantaj")
+                st.write("• Email drip: 3 adım (fayda → örnek hesap → CTA)")
+            else:
+                st.error("🔴 Winback / Aggressive Promo")
+                st.write("• 48 saatlik teklif + FOMO mesaj")
+                st.write("• SMS/Push ağırlıklı yeniden aktivasyon")
+                st.write("• Kısa anket + kişiselleştirme")
+
 
 # =============================================================================
 # TAB 3: MODEL EĞİTİMİ
