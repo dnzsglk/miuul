@@ -464,7 +464,6 @@ with col4:
     ax4.legend(title='Abonelik', labels=['No', 'Yes'])
     ax4.grid(True, alpha=0.3, axis='y')
     st.pyplot(fig4)
-st.divider()
 # =============================================================================
 # TAB 2: SEGMENTASYON (GÜNCELLENMİŞ)
 # =============================================================================
