@@ -1021,7 +1021,7 @@ with tab_model:
                 sns.barplot(x=feature_imp.values, y=feature_imp.index, palette='viridis', ax=ax_imp)
                 ax_imp.set_xlabel('Importance')
                 ax_imp.set_ylabel('Feature')
-                ax_imp.set_title('Top 20 Feature Importance')
+                ax_imp.set_title('Top Feature Importance')
                 st.pyplot(fig_imp)
                 plt.close(fig_imp)
             elif hasattr(final_model, 'coef_'):
@@ -1034,7 +1034,7 @@ with tab_model:
                 fig_imp, ax_imp = plt.subplots(figsize=(10, 8))
                 sns.barplot(x='Coef', y='Feature', data=feature_imp, palette='coolwarm', ax=ax_imp)
                 ax_imp.axvline(0, color='black', linestyle='--')
-                ax_imp.set_title('Top 20 Feature Coefficients')
+                ax_imp.set_title('Top Features Coefficients')
                 st.pyplot(fig_imp)
                 plt.close(fig_imp)
             
