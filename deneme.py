@@ -1078,10 +1078,10 @@ with tab_model:
     # =============================
     # SAVE MODEL TO SESSION STATE
     # =============================
-    st.session_state["final_model"] = final_model
-    st.session_state["scaler_model"] = scaler_model
-    st.session_state["X_columns"] = X_train.columns.tolist()
-    st.session_state["model_trained"] = True
+        st.session_state["final_model"] = final_model
+        st.session_state["scaler_model"] = scaler_model
+        st.session_state["X_columns"] = X_train.columns.tolist()
+        st.session_state["model_trained"] = True
 
 # =============================================================================
 # TAB 4: MODEL KARŞILAŞTIRMA
