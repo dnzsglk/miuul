@@ -681,9 +681,6 @@ with col_graph2:
     st.pyplot(fig_3d, use_container_width=True)
     plt.close(fig_3d)
 
-    st.divider()
-
-
     # --- Segment profilleri için df_report ---
     df_report = df_eng.copy()
     df_report["Cluster"] = clusters
