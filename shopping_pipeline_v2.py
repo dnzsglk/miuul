@@ -609,37 +609,76 @@ with tab_seg:
     st.divider()
         
     # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
-    st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
+    # ================================
+# SEGMENT PROFİLLERİ + CHURN RİSK
+# YAN YANA / DUPLICATE OLMADAN
+# ================================
+
+# Indexleri kolona çevir
+profile_df = profile.reset_index().rename(columns={"Cluster": "Cluster"})
+churn_df = segment_sub_rate.reset_index().rename(columns={"Cluster": "Cluster"})
+
+# Segment profillerinde zaten olan kolonları churn tablosundan çıkar
+cols_to_add = [c for c in churn_df.columns if c not in profile_df.columns]
+
+# Cluster her zaman kalsın
+cols_to_add = ["Cluster"] + [c for c in cols_to_add if c != "Cluster"]
+
+# Sadece gerekli kolonlarla merge
+segment_full_table = profile_df.merge(
+    churn_df[cols_to_add],
+    on="Cluster",
+    how="left"
+)
+
+# Gösterim
+st.subheader("📊 Segment Profilleri + ⚠️ Churn Risk (Tek Tablo)")
+st.dataframe(
+    segment_full_table.style
+    .background_gradient(cmap="RdYlGn", subset=["Abonelik Oranı", "Ort. Rating"])
+    .background_gradient(cmap="Blues", subset=["Toplam Harcama", "Ort. Harcama"])
+    .format({
+        "Ortalama Yaş": "{:.1f}",
+        "Toplam Harcama": "${:.2f}",
+        "Ort. Harcama": "${:.2f}",
+        "Promo Kullanım Oranı (%)": "{:.1f}%",
+        "Abonelik Oranı": "{:.1f}%",
+        "Ort. Alışveriş Sayısı": "{:.1f}",
+        "Ort. Rating": "{:.2f}"
+    })
+)
+
+    # st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
     
-    # Abonelik durumu ile segment analizi
-    df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
+    # # Abonelik durumu ile segment analizi
+    # df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
     
-    # Her segment için abonelik oranı
-    segment_sub_rate = df_report.groupby('Cluster').agg({
-        'SUBSCRIPTION': 'mean',
-        'CUSTOMER_ID': 'count',
-        'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
-        'PREVIOUS_PURCHASES': 'mean',
-        'REVIEW_RATING': 'mean'
-    }).round(3)
+    # # Her segment için abonelik oranı
+    # segment_sub_rate = df_report.groupby('Cluster').agg({
+    #     'SUBSCRIPTION': 'mean',
+    #     'CUSTOMER_ID': 'count',
+    #     'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
+    #     'PREVIOUS_PURCHASES': 'mean',
+    #     'REVIEW_RATING': 'mean'
+    # }).round(3)
     
-    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
-    segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
+    # segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
+    # segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
     
-    # Segment isimlerini ekle
-    segment_names = profile['Segment İsmi'].to_dict()
-    segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
+    # # Segment isimlerini ekle
+    # segment_names = profile['Segment İsmi'].to_dict()
+    # segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
     
-    # Sıralama: Cluster numarasına göre (default)
-    segment_sub_rate = segment_sub_rate.sort_index()
-    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
+    # # Sıralama: Cluster numarasına göre (default)
+    # segment_sub_rate = segment_sub_rate.sort_index()
+    # segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
     
-    st.dataframe(segment_sub_rate.style.background_gradient(cmap='RdYlGn', subset=['Abonelik Oranı', 'Ort. Rating']).format({
-        'Abonelik Oranı': '{:.1f}%',
-        'Ort. Harcama': '${:.2f}',
-        'Ort. Alışveriş Sayısı': '{:.1f}',
-        'Ort. Rating': '{:.2f}'
-    }))
+    # st.dataframe(segment_sub_rate.style.background_gradient(cmap='RdYlGn', subset=['Abonelik Oranı', 'Ort. Rating']).format({
+    #     'Abonelik Oranı': '{:.1f}%',
+    #     'Ort. Harcama': '${:.2f}',
+    #     'Ort. Alışveriş Sayısı': '{:.1f}',
+    #     'Ort. Rating': '{:.2f}'
+    # }))
     
     # Aksiyon Önerileri
     st.subheader("💡 Önerilen Aksiyonlar")
