@@ -140,7 +140,7 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 
 # Ayarlar
 warnings.filterwarnings('ignore')
-st.set_page_config(page_title="Miuul Alışveriş Analizi V2", page_icon="🛍️", layout="wide")
+st.set_page_config(page_title="Deneme", page_icon="🛍️", layout="wide")
 
 # CSS ve Kar Taneleri
 def local_css(file_name):
