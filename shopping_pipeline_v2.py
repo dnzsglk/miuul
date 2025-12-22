@@ -430,11 +430,7 @@ with tab_eda:
         # ax4.legend(title='Abonelik', labels=['No', 'Yes'])
         # ax4.grid(True, alpha=0.3, axis='y')
         # st.pyplot(fig4)
-
-
-    # Abonelik İstatistikleri
-    st.subheader("📈 Abonelik İstatistikleri")
-    
+   
     stat_col1, stat_col2 = st.columns(2)
     
     with stat_col1:
