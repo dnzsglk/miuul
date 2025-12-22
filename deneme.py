@@ -725,12 +725,14 @@ with tab_seg:
 
     display_df = segment_profiles[[
         "Cluster", "Segment İsmi", "N", "Yas", "Harcama_USD", "Sub_Pct",
-        "PrevPur", "Kategori", "Odeme", "Kargo", "FitScore", "RelSpend",
-        "Promo_Pct", "Iklim", "TotWght", "Rating", "Freq", "Önerilen Aksiyon"
+        "PrevPur", "Odeme", "Kargo", "FitScore", "RelSpend",
+        "Promo_Pct", "TotWght", "Freq", "Önerilen Aksiyon"
     ]].sort_values("Cluster")
 
+    display_df = display_df.reset_index(drop=True)
+
     st.dataframe(
-        display_df.style
+        display_df.reset_index(drop=True).style
         .background_gradient(cmap="Blues", subset=["TotWght", "Sub_Pct", "Promo_Pct"])
         .format({
             "Yas": "{:.1f}",
@@ -741,10 +743,10 @@ with tab_seg:
             "RelSpend": "{:.2f}",
             "Promo_Pct": "{:.1f}%",
             "TotWght": "{:.1f}",
-            "Rating": "{:.2f}",
             "Freq": "{:.1f}",
         })
     )
+
 
     st.divider()
 
