@@ -622,7 +622,6 @@ col_graph1, col_graph2 = st.columns(2)
 # 2D PCA
 # =======================
 # --- GRAFİKLER (2D + 3D yan yana) ---
-    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
     col_graph1, col_graph2 = st.columns(2)
 
     with col_graph1:
