@@ -410,15 +410,15 @@ with tab_eda:
         ax2.grid(True, alpha=0.3, axis='x')
         st.pyplot(fig2)
     
-    with viz_col2:
-        st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
-        fig3, ax3 = plt.subplots(figsize=(10, 5))
-        sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
-        ax3.set_xlabel('Abonelik Durumu')
-        ax3.set_ylabel('Yaş')
-        ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
-        ax3.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig3)
+    # with viz_col2:
+    #     st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
+    #     fig3, ax3 = plt.subplots(figsize=(10, 5))
+    #     sns.violinplot(data=df_raw, x='SUBSCRIPTION_STATUS', y='AGE', ax=ax3, palette=['#d62828', '#28a745'])
+    #     ax3.set_xlabel('Abonelik Durumu')
+    #     ax3.set_ylabel('Yaş')
+    #     ax3.set_title('Abonelik Durumuna Göre Yaş Dağılımı')
+    #     ax3.grid(True, alpha=0.3, axis='y')
+    #     st.pyplot(fig3)
         
         # st.markdown("**Promosyon Kullanımı vs Abonelik**")
         # fig4, ax4 = plt.subplots(figsize=(10, 5))
