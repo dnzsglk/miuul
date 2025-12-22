@@ -420,16 +420,16 @@ with tab_eda:
         ax3.grid(True, alpha=0.3, axis='y')
         st.pyplot(fig3)
         
-        st.markdown("**Promosyon Kullanımı vs Abonelik**")
-        fig4, ax4 = plt.subplots(figsize=(10, 5))
-        promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
-        promo_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a745'], rot=0)
-        ax4.set_xlabel('Promosyon Kullanımı')
-        ax4.set_ylabel('Yüzde (%)')
-        ax4.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
-        ax4.legend(title='Abonelik', labels=['No', 'Yes'])
-        ax4.grid(True, alpha=0.3, axis='y')
-        st.pyplot(fig4)
+        # st.markdown("**Promosyon Kullanımı vs Abonelik**")
+        # fig4, ax4 = plt.subplots(figsize=(10, 5))
+        # promo_sub = pd.crosstab(df_raw['PROMO_CODE_USED'], df_raw['SUBSCRIPTION_STATUS'], normalize='index') * 100
+        # promo_sub.plot(kind='bar', ax=ax4, color=['#d62828', '#28a745'], rot=0)
+        # ax4.set_xlabel('Promosyon Kullanımı')
+        # ax4.set_ylabel('Yüzde (%)')
+        # ax4.set_title('Promosyon Kullanımı ve Abonelik İlişkisi')
+        # ax4.legend(title='Abonelik', labels=['No', 'Yes'])
+        # ax4.grid(True, alpha=0.3, axis='y')
+        # st.pyplot(fig4)
 
 
     # Abonelik İstatistikleri
