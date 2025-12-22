@@ -142,21 +142,6 @@ from sklearn.metrics import (accuracy_score, roc_auc_score, confusion_matrix,
 warnings.filterwarnings('ignore')
 st.set_page_config(page_title="Deneme", page_icon="🛍️", layout="wide")
 
-# =============================
-# SESSION STATE INITIALIZATION
-# =============================
-default_states = {
-    "model_trained": False,
-    "final_model": None,
-    "scaler_model": None,
-    "X_columns": None,
-    "profile": None,
-    "cluster_id": None
-}
-
-for key, value in default_states.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
 # CSS ve Kar Taneleri
 def local_css(file_name):
     try:
@@ -1075,14 +1060,6 @@ with tab_model:
     
     else:
         st.info("👆 Modeli eğitmek için yukarıdaki butona tıklayın.")
-    # =============================
-    # SAVE MODEL TO SESSION STATE
-    # =============================
-        st.session_state["final_model"] = final_model
-        st.session_state["scaler_model"] = scaler_model
-        st.session_state["X_columns"] = X_train.columns.tolist()
-        st.session_state["model_trained"] = True
-
 # =============================================================================
 # TAB 4: MODEL KARŞILAŞTIRMA
 # =============================================================================
