@@ -577,229 +577,134 @@ with tab_eda:
 # =============================================================================
 # TAB 2: SEGMENTASYON (GÜNCELLENMİŞ)
 # =============================================================================
-with tab_seg:
-    st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
-    
-    segmentation_features = [
-        "PURCHASE_AMOUNT_(USD)",
-        "PREVIOUS_PURCHASES",
-        "FREQUENCY_VALUE_NEW",
-        "SPEND_PER_PURCHASE_NEW",
-        "TOTAL_SPEND_WEIGHTED_NEW"
-    ]
-    
-    X_seg = df_eng[[c for c in segmentation_features if c in df_eng.columns]].copy()
-    X_seg.fillna(0, inplace=True)
-    
-    scaler_seg = StandardScaler()
-    X_scaled = scaler_seg.fit_transform(X_seg)
-    
-    # Arka planda optimal K hesabı (Grafik kaldırıldı, sadece değer hesaplanıyor)
-    wcss = []
-    k_range = range(2, 11)
-    for k in k_range:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10).fit(X_scaled)
-        wcss.append(km.inertia_)
-    
-    p1 = np.array([k_range[0], wcss[0]])
-    p2 = np.array([k_range[-1], wcss[-1]])
-    dists = [np.abs(np.cross(p2-p1, p1-np.array([k_range[i], wcss[i]]))) / np.linalg.norm(p2-p1) for i in range(len(wcss))]
-    optimal_k = k_range[np.argmax(dists)]
-    
-    # KMeans fit ve Segmentasyon hazırlığı
-    kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
-    clusters = kmeans.fit_predict(X_scaled)
-    sil_score = silhouette_score(X_scaled, clusters)
+df_report = df_eng.copy()
+df_report["Cluster"] = clusters
 
-    # Üst Bilgi Metrikleri
-    m1, m2 = st.columns(2)
-    m1.metric("Optimal Küme Sayısı (K)", optimal_k)
-    m2.metric("Silhouette Score", f"{sil_score:.3f}")
+# yardımcı dönüşümler
+df_report["SUBSCRIPTION"] = (df_report["SUBSCRIPTION_STATUS"] == "Yes").astype(int)
+df_report["PROMO_USED_VAL"] = (df_report["PROMO_CODE_USED"] == "Yes").astype(int)
 
-    st.divider()
+# bazı string kolonlarda mode almak için güvenli fonksiyon
+def safe_mode(s):
+    s = s.dropna()
+    return s.mode().iloc[0] if len(s) else "Unknown"
 
-    # --- GRAFİKLERİ YAN YANA KOYMA ---
-    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
-    col_graph1, col_graph2 = st.columns(2)
+st.subheader("📊 Segment Profilleri (Detaylı)")
 
-    with col_graph1:
-        # PCA 2D
-        pca = PCA(n_components=2)
-        comps = pca.fit_transform(X_scaled)
-        df_pca = pd.DataFrame(comps, columns=['PC1', 'PC2'])
-        df_pca['Cluster'] = clusters
-        
-        fig_pca, ax_pca = plt.subplots(figsize=(8, 7))
-        scatter = ax_pca.scatter(df_pca['PC1'], df_pca['PC2'], c=df_pca['Cluster'], 
-                                cmap='viridis', s=50, alpha=0.6, edgecolors='w')
-        plt.colorbar(scatter, ax=ax_pca, label='Cluster')
-        ax_pca.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)')
-        ax_pca.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)')
-        ax_pca.set_title("2D Segment Dağılımı")
-        st.pyplot(fig_pca)
+segment_profiles = df_report.groupby("Cluster").agg(
+    N=("CUSTOMER_ID", "count"),
+    Yas=("AGE", "mean"),
+    Harcama_USD=("PURCHASE_AMOUNT_(USD)", "mean"),
+    Sub_Pct=("SUBSCRIPTION", "mean"),
+    PrevPur=("PREVIOUS_PURCHASES", "mean"),
+    Kategori=("CATEGORY", safe_mode),
+    Odeme=("PAYMENT_METHOD", safe_mode),
+    Kargo=("SHIPPING_TYPE", safe_mode),
+    Ikim=("CLIMATE_GROUP_NEW", safe_mode) if "CLIMATE_GROUP_NEW" in df_report.columns else ("LOCATION", safe_mode),
+    Rating=("REVIEW_RATING", "mean"),
+    Freq=("FREQUENCY_VALUE_NEW", "mean"),
+    Promo_Pct=("PROMO_USED_VAL", "mean"),
+    FitScore=("CLIMATE_ITEM_FIT_SCORE_NEW", "mean") if "CLIMATE_ITEM_FIT_SCORE_NEW" in df_report.columns else ("SUBSCRIPTION", "mean"),
+    RelSpend=("REL_SPEND_CAT_NEW", "mean") if "REL_SPEND_CAT_NEW" in df_report.columns else ("SPEND_PER_PURCHASE_NEW", "mean"),
+    TotWght=("TOTAL_SPEND_WEIGHTED_NEW", "mean"),
+).reset_index()
 
-    with col_graph2:
-        # PCA 3D
-        from mpl_toolkits.mplot3d import Axes3D
-        pca3d = PCA(n_components=3)
-        comps3d = pca3d.fit_transform(X_scaled)
-        df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
-        df_pca3d["Cluster"] = clusters
-        
-        fig_3d = plt.figure(figsize=(8, 7))
-        ax_3d = fig_3d.add_subplot(111, projection='3d')
-        
-        scatter_3d = ax_3d.scatter(
-            df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
-            c=df_pca3d["Cluster"], cmap="viridis", s=50, alpha=0.7, edgecolors='w'
-        )
-        ax_3d.set_title("3D Segment Dağılımı")
-        # 3D eksen etiketlerini küçültelim ki yan yana sığsın
-        ax_3d.tick_params(axis='both', which='major', labelsize=8)
-        st.pyplot(fig_3d)
+# oranları yüzdelik yap
+segment_profiles["Sub_Pct"] = segment_profiles["Sub_Pct"] * 100
+segment_profiles["Promo_Pct"] = segment_profiles["Promo_Pct"] * 100
 
-    st.divider()
-    
-    # Segment profilleri
-    df_report = df_eng.copy()
-    df_report['Cluster'] = clusters
-    df_report['PROMO_USED_VAL'] = df_report['PROMO_CODE_USED'].apply(lambda x: 1 if x=='Yes' else 0)
-    
-    st.subheader("📊 Segment Profilleri")
-    profile = df_report.groupby('Cluster')[['AGE', 'TOTAL_SPEND_WEIGHTED_NEW', 'PROMO_USED_VAL']].mean()
-    
-    # Segment isimlendirme
-    def name_segment(row):
-        spend = row['TOTAL_SPEND_WEIGHTED_NEW']
-        age = row['AGE']
-        promo = row['PROMO_USED_VAL'] * 100
-        
-        if spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.75):
-            spend_level = "VIP"
-        elif spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.50):
-            spend_level = "Yüksek Değerli"
-        elif spend > df_report['TOTAL_SPEND_WEIGHTED_NEW'].quantile(0.25):
-            spend_level = "Orta Değerli"
-        else:
-            spend_level = "Potansiyel"
-        
-        if age < 30:
-            age_group = "Genç"
-        elif age < 45:
-            age_group = "Orta Yaş"
-        else:
-            age_group = "Olgun"
-        
-        if promo > 60:
-            promo_type = "Fırsat Avcısı"
-        elif promo > 30:
-            promo_type = "Promosyon Duyarlı"
-        else:
-            promo_type = "Sadık"
-        
-        return f"{spend_level} {age_group} {promo_type}"
-    
-    profile['Segment İsmi'] = profile.apply(name_segment, axis=1)
-    
-    profile = profile.rename(columns={
-        'AGE': 'Ortalama Yaş',
-        'TOTAL_SPEND_WEIGHTED_NEW': 'Toplam Harcama',
-        'PROMO_USED_VAL': 'Promo Kullanım Oranı (%)'
+# -----------------------------
+# Segment isimleri (SİZİN ÇIKTIYA UYUMLU, CLUSTER-BAZLI)
+# -----------------------------
+# Sizde: 3 & 0 Upsell/Premium, 2 Nurture/Education, 4 & 1 Winback
+cluster_name_map = {
+    3: "Premium Adayları",
+    0: "Upsell’e Açık Sadıklar",
+    2: "Yüksek Harcayan Şüpheciler",
+    4: "Soğuyan Fırsatçılar",
+    1: "Düşük Değerli Geri Kazanım"
+}
+segment_profiles["Segment İsmi"] = segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
+
+# -----------------------------
+# CRM aksiyon etiketi (SİZİN ÇIKTIYA UYUMLU)
+# -----------------------------
+cluster_action_map = {
+    3: "Upsell / Premium",
+    0: "Upsell / Premium",
+    2: "Nurture / education",
+    4: "Winback / aggressive promo",
+    1: "Winback / aggressive promo"
+}
+segment_profiles["Önerilen Aksiyon"] = segment_profiles["Cluster"].map(cluster_action_map).fillna("Genel")
+
+# Görsel tablo formatı
+display_df = segment_profiles[[
+    "Cluster", "Segment İsmi", "N", "Yas", "Harcama_USD", "Sub_Pct",
+    "PrevPur", "Kategori", "Odeme", "Kargo", "FitScore", "RelSpend",
+    "Promo_Pct", "Ikim", "TotWght", "Rating", "Freq", "Önerilen Aksiyon"
+]].copy()
+
+display_df = display_df.sort_values("Cluster")
+
+st.dataframe(
+    display_df.style
+    .background_gradient(cmap="Blues", subset=["TotWght", "Sub_Pct", "Promo_Pct"])
+    .format({
+        "Yas": "{:.1f}",
+        "Harcama_USD": "{:.1f}",
+        "Sub_Pct": "{:.1f}%",
+        "PrevPur": "{:.1f}",
+        "FitScore": "{:.4f}",
+        "RelSpend": "{:.2f}",
+        "Promo_Pct": "{:.1f}%",
+        "TotWght": "{:.1f}",
+        "Rating": "{:.2f}",
+        "Freq": "{:.1f}",
     })
-    profile['Promo Kullanım Oranı (%)'] = profile['Promo Kullanım Oranı (%)'] * 100
-    
-    profile = profile[['Segment İsmi', 'Ortalama Yaş', 'Toplam Harcama', 'Promo Kullanım Oranı (%)']]
-    
-    st.dataframe(profile.style.background_gradient(cmap='Blues', subset=['Ortalama Yaş', 'Toplam Harcama', 'Promo Kullanım Oranı (%)']).format({
-        'Ortalama Yaş': '{:.1f}',
-        'Toplam Harcama': '${:.2f}',
-        'Promo Kullanım Oranı (%)': '{:.1f}%'
-    }))
-    
-    st.divider()
-        
-    # RİSK ANALİZİ: Kaybetme Riski Yüksek Müşteriler
-    st.subheader("⚠️ Risk Altındaki Müşteriler (Churn Risk)")
-    
-    # Abonelik durumu ile segment analizi
-    df_report['SUBSCRIPTION'] = df_report['SUBSCRIPTION_STATUS'].map({'Yes': 1, 'No': 0})
-    
-    # Her segment için abonelik oranı
-    segment_sub_rate = df_report.groupby('Cluster').agg({
-        'SUBSCRIPTION': 'mean',
-        'CUSTOMER_ID': 'count',
-        'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
-        'PREVIOUS_PURCHASES': 'mean',
-        'REVIEW_RATING': 'mean'
-    }).round(3)
-    
-    segment_sub_rate.columns = ['Abonelik Oranı', 'Müşteri Sayısı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']
-    segment_sub_rate['Abonelik Oranı'] = segment_sub_rate['Abonelik Oranı'] * 100
-    
-    # Segment isimlerini ekle
-    segment_names = profile['Segment İsmi'].to_dict()
-    segment_sub_rate['Segment İsmi'] = segment_sub_rate.index.map(segment_names)
-    
-    # Sıralama: Cluster numarasına göre (default)
-    segment_sub_rate = segment_sub_rate.sort_index()
-    segment_sub_rate = segment_sub_rate[['Segment İsmi', 'Müşteri Sayısı', 'Abonelik Oranı', 'Ort. Harcama', 'Ort. Alışveriş Sayısı', 'Ort. Rating']]
-    
-    st.dataframe(segment_sub_rate.style.background_gradient(cmap='RdYlGn', subset=['Abonelik Oranı', 'Ort. Rating']).format({
-        'Abonelik Oranı': '{:.1f}%',
-        'Ort. Harcama': '${:.2f}',
-        'Ort. Alışveriş Sayısı': '{:.1f}',
-        'Ort. Rating': '{:.2f}'
-    }))
-    
-    # Aksiyon Önerileri
-    st.subheader("💡 Önerilen Aksiyonlar")
-    
-    # Düşük abonelik oranlı segmentler
-    low_sub_segments = segment_sub_rate[segment_sub_rate['Abonelik Oranı'] < segment_sub_rate['Abonelik Oranı'].mean()]
-    
-    if len(low_sub_segments) > 0:
-        st.warning(f"⚠️ **{len(low_sub_segments)} segment ortalamanın altında abonelik oranına sahip!**")
-        
-        for idx, row in low_sub_segments.iterrows():
-            with st.expander(f"📌 Cluster {idx}: {row['Segment İsmi']}"):
-                col_exp1, col_exp2 = st.columns(2)
-                
-                with col_exp1:
-                    st.metric("Müşteri Sayısı", f"{row['Müşteri Sayısı']:.0f}")
-                    st.metric("Abonelik Oranı", f"{row['Abonelik Oranı']:.1f}%")
-                    st.metric("Ort. Harcama", f"${row['Ort. Harcama']:.2f}")
-                
-                with col_exp2:
-                    st.metric("Ort. Alışveriş Sayısı", f"{row['Ort. Alışveriş Sayısı']:.1f}")
-                    st.metric("Ort. Rating", f"{row['Ort. Rating']:.2f}")
-                
-                st.markdown("**🎯 Önerilen Aksiyonlar:**")
-                
-                if row['Abonelik Oranı'] < 30:
-                    st.write("✅ Agresif abonelik kampanyası (ilk 3 ay %50 indirim)")
-                elif row['Abonelik Oranı'] < 50:
-                    st.write("✅ Orta düzey abonelik teşviki (ilk ay %30 indirim)")
-                
-                if row['Ort. Harcama'] > segment_sub_rate['Ort. Harcama'].mean():
-                    st.write("✅ VIP müşteri programı sun (premium avantajlar)")
-                
-                if row['Ort. Rating'] < 3.5:
-                    st.write("✅ Müşteri memnuniyeti anketleri ve iyileştirme planı")
-                
-                if row['Ort. Alışveriş Sayısı'] < 20:
-                    st.write("✅ Sadakat programı ve tekrar satın alma teşvikleri")
-                else:
-                    st.write("✅ Sadık müşteri ödüllendirme programı")
-    else:
-        st.success("✅ Tüm segmentler ortalamanın üzerinde abonelik oranına sahip!")
-    
-    # Session state'e kaydet
-    st.session_state['kmeans'] = kmeans
-    st.session_state['scaler_seg'] = scaler_seg
-    st.session_state['profile'] = profile
-    st.session_state['df_report'] = df_report
-    st.session_state['optimal_k'] = optimal_k
-    st.session_state['segment_sub_rate'] = segment_sub_rate
+)
+
+st.divider()
+
+# =============================================================================
+# Önerilen aksiyonlar (MODEL ÇIKTISINA UYUMLU KISA PLAYBOOK)
+# =============================================================================
+st.subheader("💡 Segment Bazlı Aksiyon Playbook")
+
+for _, r in display_df.iterrows():
+    cl = int(r["Cluster"])
+    with st.expander(f"📌 Cluster {cl} — {r['Segment İsmi']} ({r['Önerilen Aksiyon']})"):
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.metric("Müşteri", f"{r['N']:.0f}")
+            st.metric("Abonelik", f"{r['Sub_Pct']:.1f}%")
+
+        with c2:
+            st.metric("TotWght", f"{r['TotWht'] if 'TotWht' in r else r['TotWght']:.1f}")
+            st.metric("Ort. Harcama", f"{r['Harcama_USD']:.1f}")
+
+        with c3:
+            st.metric("Promo", f"{r['Promo_Pct']:.1f}%")
+            st.metric("Frekans", f"{r['Freq']:.1f}")
+
+        # Aksiyon metni (cluster bazlı)
+        if cl in [3, 0]:
+            st.success("✅ Upsell / Premium")
+            st.write("• Premium/Plus abonelik: ücretsiz kargo + özel kampanya erişimi")
+            st.write("• Checkout ve satın alma sonrası 1 tık abonelik önerisi")
+            st.write("• 30 gün deneme veya ilk 3 ay indirim (A/B test)")
+        elif cl == 2:
+            st.info("ℹ️ Nurture / Education")
+            st.write("• Tasarruf simülasyonu: 'Abone olsaydınız X₺ daha az öderdiniz'")
+            st.write("• Aboneliğin faydası: fiyat değil, değer ve avantaj anlatımı")
+            st.write("• Email drip: 3 adım (fayda → örnek hesap → CTA)")
+        else:  # 4 veya 1
+            st.error("🔴 Winback / Aggressive Promo")
+            st.write("• 48 saatlik teklif (ilk ay %50 vb.) + FOMO mesaj")
+            st.write("• SMS/Push ağırlıklı, düşük maliyetli yeniden aktivasyon")
+            st.write("• Memnuniyet/engeller: kısa anket + kişiselleştirme")
+
 
 # =============================================================================
 # TAB 3: MODEL EĞİTİMİ
