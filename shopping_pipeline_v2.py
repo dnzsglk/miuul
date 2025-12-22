@@ -1382,7 +1382,7 @@ with tab_comp:
     else:
         st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
 # =============================================================================
-# TAB 5: CRM ANALİZİ (GÜVENLİ & GÖRSELDEKİ SÜTUNLARLA UYUMLU)
+# TAB 5: CRM ANALİZİ (PROFİL VERİLERİYLE TAM UYUMLU)
 # =============================================================================
 with tab_crm:
     st.header("💼 CRM ve Segment Bazlı Aksiyon Planı")
@@ -1390,103 +1390,84 @@ with tab_crm:
     if 'final_model' in st.session_state and 'df_report' in st.session_state:
         df_report = st.session_state['df_report']
         
-        # --- HATA ÖNLEYİCİ: Mevcut sütun isimlerini tespit et ---
-        cols = df_report.columns.tolist()
+        # 1. Senin 'profile_df' mantığınla CRM özetini oluşturuyoruz
+        # Not: SUBSCRIPTION_STATUS kolonunun df_report içinde 'Yes'/'No' olduğu varsayılmıştır.
+        crm_summary = df_report.groupby("Cluster").agg({
+            "CUSTOMER_ID": "count",
+            "SUBSCRIPTION_STATUS": lambda x: (x == "Yes").mean(),
+            "AGE": "mean",
+            "PURCHASE_AMOUNT_(USD)": "mean",
+            "CLIMATE_ITEM_FIT_SCORE_NEW": "mean",
+            "REL_SPEND_CAT_NEW": "mean",
+            "PROMO_CODE_USED": lambda x: (x == "Yes").mean(),
+            "CLIMATE_GROUP_NEW": lambda x: x.mode().iloc[0] if not x.mode().empty else "N/A",
+            "TOTAL_SPEND_WEIGHTED_NEW": "mean",
+            "FREQUENCY_VALUE_NEW": "mean",
+            "SHIPPING_TYPE": lambda x: x.mode().iloc[0] if not x.mode().empty else "N/A"
+        }).round(3)
+
+        # Kolonları senin istediğin ve görseldeki isimlere çeviriyoruz
+        crm_summary.columns = [
+            'Müşteri Sayısı', 'Abonelik Oranı', 'Yaş', 'Ort. Harcama', 
+            'FitScore', 'RelSpend', 'Promo Kullanım', 'İklim', 
+            'TotWght', 'Frekans', 'Kargo'
+        ]
+
+        # 2. CRM Stratejik Eşik Değerleri
+        target_mean = crm_summary["Abonelik Oranı"].mean()
+        spend_median = crm_summary["Ort. Harcama"].median()
+
+        def define_action(row):
+            if row["Abonelik Oranı"] >= target_mean and row["Ort. Harcama"] >= spend_median:
+                return "Upsell / Premium teklif"
+            elif row["Abonelik Oranı"] >= target_mean:
+                return "Quick win / light incentive"
+            elif row["Abonelik Oranı"] < target_mean and row["Ort. Harcama"] >= spend_median:
+                return "Retention / özel ilgi"
+            else:
+                return "Winback / agresif promosyon"
+
+        crm_summary['Önerilen Aksiyon'] = crm_summary.apply(define_action, axis=1)
+
+        # 3. Ana Tablo Gösterimi
+        st.subheader("📊 Segment Bazlı Davranış ve CRM Matrisi")
         
-        # Görseldeki özelliklerin veri setindeki karşılıklarını bul (Küçük/Büyük harf duyarlılığı için)
-        def find_col(possible_names):
-            for name in possible_names:
-                if name in cols: return name
-            return None
-
-        # Sütun eşleştirme sözlüğü
-        target_cols = {
-            'id': find_col(['CUSTOMER_ID', 'ID', 'Müşteri No']),
-            'target': find_col(['SUBSCRIPTION_STATUS', 'Abonelik', 'Sub%']),
-            'spend': find_col(['TOTAL_SPEND_WEIGHTED_NEW', 'Harcama($)', 'Harcama']),
-            'prev_pur': find_col(['PREVIOUS_PURCHASES', 'PrevPur', 'Ort. Alışveriş']),
-            'fit': find_col(['FitScore', 'fit_score', 'UyumSkoru']),
-            'rel_spend': find_col(['RelSpend', 'rel_spend', 'HarcamaEndeksi']),
-            'promo': find_col(['PROMO_USED_VAL', 'Promo%', 'Promo']),
-            'pay': find_col(['Ödeme', 'PAYMENT_METHOD', 'Payment']),
-            'ship': find_col(['Kargo', 'SHIPPING_TYPE', 'Kargo_Tipi']),
-            'climate': find_col(['İklim', 'CLIMATE', 'Climate'])
-        }
-
-        # --- AGGREGATION (GRUPLAMA) SÖZLÜĞÜ OLUŞTURMA ---
-        agg_dict = {}
-        if target_cols['id']: agg_dict[target_cols['id']] = 'count'
-        if target_cols['target']: agg_dict[target_cols['target']] = lambda x: (x == 'Yes').mean() if x.dtype == 'object' else x.mean()
-        if target_cols['spend']: agg_dict[target_cols['spend']] = 'mean'
-        if target_cols['prev_pur']: agg_dict[target_cols['prev_pur']] = 'mean'
-        if target_cols['fit']: agg_dict[target_cols['fit']] = 'mean'
-        if target_cols['rel_spend']: agg_dict[target_cols['rel_spend']] = 'mean'
-        if target_cols['promo']: agg_dict[target_cols['promo']] = 'mean'
-        
-        # Kategorik veriler için en sık tekrar edeni (Mode) al
-        for cat in ['pay', 'ship', 'climate']:
-            if target_cols[cat]:
-                agg_dict[target_cols[cat]] = lambda x: x.mode()[0] if not x.mode().empty else "N/A"
-
-        # Gruplama İşlemi
-        crm_summary = df_report.groupby('Cluster').agg(agg_dict).round(3)
-
-        # Kolon isimlerini standartlaştır (Görüntüleme için)
-        rename_map = {
-            target_cols['id']: 'n_customers',
-            target_cols['target']: 'crm_target_rate',
-            target_cols['spend']: 'avg_spend',
-            target_cols['fit']: 'avg_fit_score',
-            target_cols['rel_spend']: 'avg_rel_spend',
-            target_cols['pay']: 'top_payment',
-            target_cols['ship']: 'top_shipping'
-        }
-        crm_summary = crm_summary.rename(columns={k: v for k, v in rename_map.items() if k is not None})
-
-        # --- CRM AKSİYON MANTIĞI ---
-        spend_median = crm_summary["avg_spend"].median() if 'avg_spend' in crm_summary else 0
-        target_mean = crm_summary["crm_target_rate"].mean() if 'crm_target_rate' in crm_summary else 0
-
-        def get_action(row):
-            rate = row.get('crm_target_rate', 0)
-            spend = row.get('avg_spend', 0)
-            if rate >= target_mean and spend >= spend_median: return "Upsell / Premium teklif"
-            elif rate >= target_mean: return "Quick win / light incentive"
-            elif rate < target_mean and spend >= spend_median: return "Retention / özel ilgi"
-            else: return "Winback / agresif promosyon"
-
-        crm_summary['action'] = crm_summary.apply(get_action, axis=1)
-
-        # --- GÖRSELLEŞTİRME ---
-        st.subheader("📊 Gelişmiş Segment Analiz Tablosu")
-        
-        # Tabloyu güzelleştirme
+        # Formatlama: Oranları % yapalım
         display_df = crm_summary.copy()
-        if 'crm_target_rate' in display_df:
-            display_df['crm_target_rate'] = (display_df['crm_target_rate'] * 100).round(1).astype(str) + '%'
+        display_df['Abonelik Oranı'] = (display_df['Abonelik Oranı'] * 100).round(1).astype(str) + '%'
+        display_df['Promo Kullanım'] = (display_df['Promo Kullanım'] * 100).round(1).astype(str) + '%'
         
-        st.dataframe(display_df.style.background_gradient(cmap='RdYlGn', subset=['avg_spend'] if 'avg_spend' in display_df else []))
+        st.dataframe(display_df.style.background_gradient(
+            cmap='YlGn', subset=['FitScore', 'RelSpend', 'Ort. Harcama']
+        ))
 
-        # --- DETAYLI AKSİYON KARTLARI ---
+        # 4. Aksiyon Detayları ve Görseldeki Kutular
         st.divider()
-        st.subheader("🎯 Operasyonel Aksiyon Planları")
-        
-        for action in crm_summary['action'].unique():
-            with st.expander(f"📍 {action}", expanded=True):
-                sub_df = crm_summary[crm_summary['action'] == action]
-                for idx, row in sub_df.iterrows():
-                    st.markdown(f"### Segment: Cluster {idx}")
-                    c1, c2, c3 = st.columns(3)
-                    if 'avg_fit_score' in row: c1.metric("Fit Score (Uyum)", row['avg_fit_score'])
-                    if 'avg_rel_spend' in row: c2.metric("RelSpend (Endeks)", row['avg_rel_spend'])
-                    if 'top_payment' in row: c3.write(f"💳 **Ödeme:** {row['top_payment']}")
+        st.subheader("🎯 Operasyonel Detaylar")
+
+        cols_matrix = st.columns(2)
+        for i, (idx, row) in enumerate(crm_summary.iterrows()):
+            with cols_matrix[i % 2]:
+                with st.expander(f"📍 Cluster {idx} - {row['Önerilen Aksiyon']}", expanded=True):
+                    # Görseldeki kutu içine alınan değerleri öne çıkaralım
+                    c1, c2 = st.columns(2)
+                    c1.metric("FitScore (Uyum)", row['FitScore'])
+                    c2.metric("RelSpend (Endeks)", row['RelSpend'])
                     
-                    # Dinamik tavsiye
-                    if 'top_shipping' in row and "Free Shipping" in str(row['top_shipping']):
-                        st.info("💡 Bu grup kargo maliyetine duyarlı. 'Ücretsiz Kargo' avantajı öne çıkarılmalı.")
-                    st.divider()
+                    st.write(f"🌍 **Baskın İklim:** {row['İklim']}")
+                    st.write(f"🚚 **Lojistik:** {row['Kargo']}")
+                    st.write(f"💳 **Toplam Ağırlıklı Harcama:** ${row['TotWght']:.1f}")
+                    
+                    # Dinamik CRM Tavsiyesi
+                    if "Free Shipping" in row['Kargo']:
+                        st.info("💡 Ücretsiz kargo bu grup için kritik. Kampanyalarda kargo vurgusu yapın.")
+                    elif row['FitScore'] > 0.026:
+                        st.success("✨ Yüksek uyum skoru! Bu segment sadık kalmaya en yatkın grup.")
+                    
+                    st.markdown(f"**Aksiyon:** {row['Önerilen Aksiyon']}")
+
     else:
-        st.warning("⚠️ Lütfen önce modeli eğitin (Tab 3 veya 4).")
+        st.warning("⚠️ Lütfen önce modeli eğitin ve 'df_report'un oluştuğundan emin olun.")
 # =============================================================================
 # TAB 6: SİMÜLATÖR
 # =============================================================================
