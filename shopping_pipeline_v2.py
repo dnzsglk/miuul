@@ -383,32 +383,49 @@ with tab_eda:
     st.divider()
     
     # Görselleştirmeler
-    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+
+viz_col1, viz_col2 = st.columns(2)
+
+# 🔹 SOL: Abonelik Durumuna Göre Harcama Dağılımı
+with viz_col1:
+    st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
+    fig1, ax1 = plt.subplots(figsize=(8, 5))
     
-    viz_col1, viz_col2 = st.columns(2)
+    for status in df_raw['SUBSCRIPTION_STATUS'].unique():
+        data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
+        sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
     
-    with viz_col1:
-        st.markdown("**Abonelik Durumuna Göre Harcama Dağılımı**")
-        fig1, ax1 = plt.subplots(figsize=(10, 5))
-        for status in df_raw['SUBSCRIPTION_STATUS'].unique():
-            data = df_raw[df_raw['SUBSCRIPTION_STATUS'] == status]['PURCHASE_AMOUNT_(USD)']
-            sns.kdeplot(data, ax=ax1, label=status, fill=True, alpha=0.5)
-        ax1.set_xlabel('Harcama Tutarı ($)')
-        ax1.set_ylabel('Yoğunluk')
-        ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        st.pyplot(fig1)
-        
-        st.markdown("**Kategori Bazlı Abonelik Oranları**")
-        fig2, ax2 = plt.subplots(figsize=(10, 5))
-        category_sub = df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS'].apply(lambda x: (x=='Yes').sum() / len(x) * 100).sort_values(ascending=True)
-        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2, palette='viridis')
-        ax2.set_xlabel('Abonelik Oranı (%)')
-        ax2.set_ylabel('Kategori')
-        ax2.set_title('Kategori Bazında Abonelik Oranları')
-        ax2.grid(True, alpha=0.3, axis='x')
-        st.pyplot(fig2)
+    ax1.set_xlabel('Harcama Tutarı ($)')
+    ax1.set_ylabel('Yoğunluk')
+    ax1.set_title('Abonelik Durumuna Göre Harcama Dağılımı')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    st.pyplot(fig1)
+
+# 🔹 SAĞ: Kategori Bazlı Abonelik Oranları
+with viz_col2:
+    st.markdown("**Kategori Bazlı Abonelik Oranları**")
+    fig2, ax2 = plt.subplots(figsize=(8, 5))
+    
+    category_sub = (
+        df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
+        .apply(lambda x: (x == 'Yes').sum() / len(x) * 100)
+        .sort_values(ascending=True)
+    )
+    
+    sns.barplot(
+        x=category_sub.values,
+        y=category_sub.index,
+        ax=ax2,
+        palette='viridis'
+    )
+    
+    ax2.set_xlabel('Abonelik Oranı (%)')
+    ax2.set_ylabel('Kategori')
+    ax2.set_title('Kategori Bazında Abonelik Oranları')
+    ax2.grid(True, alpha=0.3, axis='x')
+    st.pyplot(fig2)
     
     # with viz_col2:
     #     st.markdown("**Abonelik Durumuna Göre Yaş Dağılımı**")
