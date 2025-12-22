@@ -186,28 +186,36 @@ st.sidebar.markdown("""
     """, unsafe_allow_html=True)
 
 # Otomatik Müzik Çalar (JavaScript Tetikleyici)
+# ===================== 🎵 SIDEBAR SES KONTROLÜ =====================
+st.sidebar.markdown("### 🎵 Arka Plan Müziği")
+
+music_on = st.sidebar.toggle("Müzik Aç / Kapat", value=False)
+volume = st.sidebar.slider("Ses Seviyesi", 0.0, 1.0, 0.4, 0.05)
+
 audio_url = "https://www.mfiles.co.uk/mp3-downloads/jingle-bells-keyboard.mp3"
 
+# ===================== 🎶 KONTROLLÜ MÜZİK OYNATICI =====================
 components.html(
     f"""
     <audio id="christmasAudio" loop>
         <source src="{audio_url}" type="audio/mp3">
     </audio>
+
     <script>
-        var audio = document.getElementById("christmasAudio");
-        audio.volume = 0.4;
-        
-        // Tarayıcı kısıtlamasını aşmak için: 
-        // Kullanıcı sayfada herhangi bir yere tıkladığı an müzik başlar.
-        window.parent.document.addEventListener('click', function() {{
-            audio.play();
-        }}, {{ once: true }});
+        const audio = document.getElementById("christmasAudio");
+        audio.volume = {volume};
+
+        if ({str(music_on).lower()}) {{
+            audio.play().catch(() => {{}});
+        }} else {{
+            audio.pause();
+        }}
     </script>
     """,
     height=0,
 )
+# ===============================================================
 
-st.sidebar.info("🎵 Müzik, sayfada herhangi bir yere tıkladığınızda başlayacaktır.")
 
 # Tema
 def apply_modern_christmas_theme():
