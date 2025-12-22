@@ -621,66 +621,67 @@ col_graph1, col_graph2 = st.columns(2)
 # =======================
 # 2D PCA
 # =======================
-with col_graph1:
-    pca = PCA(n_components=2, random_state=42)
-    comps = pca.fit_transform(X_scaled)
+# --- GRAFİKLER (2D + 3D yan yana) ---
+    st.subheader("🎨 Segment Görselleştirmeleri (2D vs 3D)")
+    col_graph1, col_graph2 = st.columns(2)
 
-    df_pca = pd.DataFrame(comps, columns=["PC1", "PC2"])
-    df_pca["Cluster"] = clusters
+    with col_graph1:
+        pca = PCA(n_components=2, random_state=42)
+        comps = pca.fit_transform(X_scaled)
+        df_pca = pd.DataFrame(comps, columns=["PC1", "PC2"])
+        df_pca["Cluster"] = clusters
 
-    explained_2d = pca.explained_variance_ratio_.sum() * 100
+        fig_pca, ax_pca = plt.subplots(figsize=(8, 7), constrained_layout=True)
+        scatter = ax_pca.scatter(
+            df_pca["PC1"], df_pca["PC2"],
+            c=df_pca["Cluster"], cmap="viridis",
+            s=50, alpha=0.6, edgecolors="w"
+        )
+        plt.colorbar(scatter, ax=ax_pca, label="Cluster")
+        
+        # 2D Eksen Etiketleri (Açıklanan Varyans ile)
+        ax_pca.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}% varyans)")
+        ax_pca.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}% varyans)")
+        
+        ax_pca.set_title("2D Segment Dağılımı")
+        ax_pca.grid(True, alpha=0.25)
+        st.pyplot(fig_pca, use_container_width=True)
+        plt.close(fig_pca)
 
-    fig_pca, ax_pca = plt.subplots(figsize=(8, 7), constrained_layout=True)
-    scatter = ax_pca.scatter(
-        df_pca["PC1"], df_pca["PC2"],
-        c=df_pca["Cluster"], cmap="viridis",
-        s=50, alpha=0.6, edgecolors="w"
-    )
+    with col_graph2:
+        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
-    plt.colorbar(scatter, ax=ax_pca, label="Cluster")
+        pca3d = PCA(n_components=3, random_state=42)
+        comps3d = pca3d.fit_transform(X_scaled)
+        df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
+        df_pca3d["Cluster"] = clusters
 
-    ax_pca.set_xlabel(f"PC1 (%{pca.explained_variance_ratio_[0]*100:.1f})")
-    ax_pca.set_ylabel(f"PC2 (%{pca.explained_variance_ratio_[1]*100:.1f})")
-    ax_pca.set_title(f"2D Segment Dağılımı (Toplam Varyans: %{explained_2d:.1f})")
-    ax_pca.grid(True, alpha=0.25)
+        fig_3d = plt.figure(figsize=(8, 7), constrained_layout=True)
+        ax_3d = fig_3d.add_subplot(111, projection="3d")
 
-    st.pyplot(fig_pca, use_container_width=True)
-    plt.close(fig_pca)
+        scatter_3d = ax_3d.scatter(
+            df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
+            c=df_pca3d["Cluster"], cmap="viridis",
+            s=50, alpha=0.7, edgecolors="w"
+        )
+        
+        cbar = fig_3d.colorbar(scatter_3d, ax=ax_3d, shrink=0.6, pad=0.02)
+        cbar.set_label("Cluster")
+        
+        # 3D Eksen Etiketleri (Açıklanan Varyans ile)
+        ax_3d.set_xlabel(f"PC1 ({pca3d.explained_variance_ratio_[0]*100:.1f}%)")
+        ax_3d.set_ylabel(f"PC2 ({pca3d.explained_variance_ratio_[1]*100:.1f}%)")
+        ax_3d.set_zlabel(f"PC3 ({pca3d.explained_variance_ratio_[2]*100:.1f}%)")
+        
+        # Toplam varyansı başlığa eklemek de güzel bir dokunuş olabilir
+        total_var = sum(pca3d.explained_variance_ratio_) * 100
+        ax_3d.set_title(f"3D Segment Dağılımı (Toplam: %{total_var:.1f})")
+        
+        ax_3d.tick_params(axis="both", which="major", labelsize=8)
+        st.pyplot(fig_3d, use_container_width=True)
+        plt.close(fig_3d)
 
-# =======================
-# 3D PCA
-# =======================
-with col_graph2:
-    from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-
-    pca3d = PCA(n_components=3, random_state=42)
-    comps3d = pca3d.fit_transform(X_scaled)
-
-    df_pca3d = pd.DataFrame(comps3d, columns=["PC1", "PC2", "PC3"])
-    df_pca3d["Cluster"] = clusters
-
-    explained_3d = pca3d.explained_variance_ratio_.sum() * 100
-
-    fig_3d = plt.figure(figsize=(8, 7), constrained_layout=True)
-    ax_3d = fig_3d.add_subplot(111, projection="3d")
-
-    scatter_3d = ax_3d.scatter(
-        df_pca3d["PC1"], df_pca3d["PC2"], df_pca3d["PC3"],
-        c=df_pca3d["Cluster"], cmap="viridis",
-        s=50, alpha=0.7, edgecolors="w"
-    )
-
-    cbar = fig_3d.colorbar(scatter_3d, ax=ax_3d, shrink=0.6, pad=0.02)
-    cbar.set_label("Cluster")
-
-    ax_3d.set_xlabel(f"PC1 (%{pca3d.explained_variance_ratio_[0]*100:.1f})")
-    ax_3d.set_ylabel(f"PC2 (%{pca3d.explained_variance_ratio_[1]*100:.1f})")
-    ax_3d.set_zlabel(f"PC3 (%{pca3d.explained_variance_ratio_[2]*100:.1f})")
-    ax_3d.set_title(f"3D Segment Dağılımı (Toplam Varyans: %{explained_3d:.1f})")
-
-    st.pyplot(fig_3d, use_container_width=True)
-    plt.close(fig_3d)
-
+    st.divider()
     # --- Segment profilleri için df_report ---
     df_report = df_eng.copy()
     df_report["Cluster"] = clusters
