@@ -525,36 +525,22 @@ with tab_eda:
         st.pyplot(fig1)
         plt.close(fig1)  # ✅ iyi pratik
 
-# 405. satırda 'with' bloğu başlıyor
-with col2:
-    # Bu satır ve altındakiler MUTLAKA içeride (indentli) olmalı
-    st.markdown("*Kategori Bazlı Abonelik Oranları*")
-    fig2, ax2 = plt.subplots(figsize=(8, 5))
-    
-    category_sub = (
-        df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
-        .apply(lambda x: (x == 'Yes').mean() * 100)
-        .sort_values()
-    )
-    
-    # Renkli barplot (Her kategori farklı renk)
-    sns.barplot(
-        x=category_sub.values, 
-        y=category_sub.index, 
-        ax=ax2, 
-        hue=category_sub.index, 
-        palette='viridis', 
-        legend=False
-    )
-    
-    ax2.set_xlabel('Abonelik Oranı (%)')
-    ax2.set_ylabel('Kategori')
-    ax2.set_title('Kategori Bazında Abonelik Oranları')
-    ax2.grid(True, alpha=0.3, axis='x')
-    
-    st.pyplot(fig2)
-    plt.close(fig2)
-    
+    with col2:
+        st.markdown("*Kategori Bazlı Abonelik Oranları*")
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        category_sub = (
+            df_raw.groupby('CATEGORY')['SUBSCRIPTION_STATUS']
+            .apply(lambda x: (x == 'Yes').mean() * 100)
+            .sort_values()
+        )
+        sns.barplot(x=category_sub.values, y=category_sub.index, ax=ax2)
+        ax2.set_xlabel('Abonelik Oranı (%)')
+        ax2.set_ylabel('Kategori')
+        ax2.set_title('Kategori Bazında Abonelik Oranları')
+        ax2.grid(True, alpha=0.3, axis='x')
+        st.pyplot(fig2)
+        plt.close(fig2)
+
     # === 2. SATIR ===
     col3, col4 = st.columns(2)
 
