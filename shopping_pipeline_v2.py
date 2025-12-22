@@ -1382,108 +1382,254 @@ with tab_comp:
     else:
         st.info("👆 Modelleri karşılaştırmak için yukarıdaki butona tıklayın.")
 # =============================================================================
-# TAB 5: CRM ANALİZİ (HATA KORUMALI & TAM UYUMLU)
+# TAB 5: CRM ANALİZİ
 # =============================================================================
 with tab_crm:
     st.header("💼 CRM ve Segment Bazlı Aksiyon Planı")
     
-    if 'final_model' in st.session_state and 'df_report' in st.session_state:
+    if 'final_model' in st.session_state and st.session_state['final_model'] is not None and 'df_report' in st.session_state:
+        
+        # Tüm veri için tahmin
+        st.subheader("📊 Segment Bazlı Abonelik Tahmini")
+        
         df_report = st.session_state['df_report']
         
-        # --- GÜVENLİK ADIMI: Mevcut sütunları listele ---
-        actual_cols = df_report.columns.tolist()
-
-        # Senin profil kodundaki isimler ile veri setindekileri eşleştiriyoruz
-        # Eğer kodundaki isim bulunamazsa, listedeki alternatiflere bakar
-        def get_col(preferred, alternatives):
-            if preferred in actual_cols: return preferred
-            for alt in alternatives:
-                if alt in actual_cols: return alt
-            return None
-
-        # Sütun haritası (Senin kodundan alındı)
-        col_map = {
-            "id": get_col("CUSTOMER_ID", ["ID", "Customer_ID", "customer_id"]),
-            "target": get_col("SUBSCRIPTION_STATUS", ["Abonelik", "Sub%", "Subscription_Status"]),
-            "age": get_col("AGE", ["Age", "Yaş"]),
-            "spend": get_col("PURCHASE_AMOUNT_(USD)", ["Spend", "Harcama", "Purchase_Amount"]),
-            "fit": get_col("CLIMATE_ITEM_FIT_SCORE_NEW", ["FitScore", "fit_score"]),
-            "rel": get_col("REL_SPEND_CAT_NEW", ["RelSpend", "rel_spend"]),
-            "promo": get_col("PROMO_CODE_USED", ["PromoRate", "Promo%", "promo_code_used"]),
-            "climate": get_col("CLIMATE_GROUP_NEW", ["Climate", "İklim", "climate_group"]),
-            "tot_wght": get_col("TOTAL_SPEND_WEIGHTED_NEW", ["TotWght", "TotalSpendWeighted"]),
-            "freq": get_col("FREQUENCY_VALUE_NEW", ["FreqValue", "Frekans"]),
-            "ship": get_col("SHIPPING_TYPE", ["Shipping", "Kargo", "shipping_type"])
-        }
-
-        # --- DİNAMİK AGGREGATION SÖZLÜĞÜ ---
-        # Sadece mevcut olan sütunları işleme alıyoruz (KeyError'u bu engeller)
-        agg_dict = {}
-        if col_map["id"]: agg_dict[col_map["id"]] = "count"
-        if col_map["target"]: agg_dict[col_map["target"]] = lambda x: (x == "Yes").mean() if x.dtype == 'object' else x.mean()
-        if col_map["age"]: agg_dict[col_map["age"]] = "mean"
-        if col_map["spend"]: agg_dict[col_map["spend"]] = "mean"
-        if col_map["fit"]: agg_dict[col_map["fit"]] = "mean"
-        if col_map["rel"]: agg_dict[col_map["rel"]] = "mean"
-        if col_map["promo"]: agg_dict[col_map["promo"]] = lambda x: (x == "Yes").mean() if x.dtype == 'object' else x.mean()
-        if col_map["tot_wght"]: agg_dict[col_map["tot_wght"]] = "mean"
-        if col_map["freq"]: agg_dict[col_map["freq"]] = "mean"
+        # Her segment için detaylı analiz
+        crm_summary = df_report.groupby('Cluster').agg({
+            'CUSTOMER_ID': 'count',
+            'SUBSCRIPTION_STATUS': lambda x: (x == 'Yes').mean(),
+            'TOTAL_SPEND_WEIGHTED_NEW': 'mean',
+            'PREVIOUS_PURCHASES': 'mean',
+            'FREQUENCY_VALUE_NEW': 'mean',
+            'PROMO_USED_VAL': 'mean'
+        }).round(3)
         
-        # Kategorik Mode işlemleri
-        for k in ["climate", "ship"]:
-            if col_map[k]:
-                agg_dict[col_map[k]] = lambda x: x.mode().iloc[0] if not x.mode().empty else "N/A"
-
-        # Gruplama ve Hesaplama
-        crm_summary = df_report.groupby("Cluster").agg(agg_dict).round(3)
-
-        # Görüntüleme için sütunları Türkçeleştir ve Standartlaştır
-        final_rename = {
-            col_map["id"]: "Müşteri Sayısı",
-            col_map["target"]: "Abonelik Oranı",
-            col_map["spend"]: "Ort. Harcama",
-            col_map["fit"]: "FitScore",
-            col_map["rel"]: "RelSpend",
-            col_map["tot_wght"]: "TotWght",
-            col_map["ship"]: "Kargo"
-        }
-        crm_summary = crm_summary.rename(columns={k: v for k, v in final_rename.items() if k})
-
-        # --- CRM AKSİYON MANTIĞI ---
-        target_mean = crm_summary["Abonelik Oranı"].mean() if "Abonelik Oranı" in crm_summary else 0
-        spend_median = crm_summary["Ort. Harcama"].median() if "Ort. Harcama" in crm_summary else 0
-
-        def define_action(row):
-            rate = row.get("Abonelik Oranı", 0)
-            spend = row.get("Ort. Harcama", 0)
-            if rate >= target_mean and spend >= spend_median: return "Upsell / Premium teklif"
-            elif rate >= target_mean: return "Quick win / light incentive"
-            elif rate < target_mean and spend >= spend_median: return "Retention / özel ilgi"
-            else: return "Winback / agresif promosyon"
-
-        crm_summary['Önerilen Aksiyon'] = crm_summary.apply(define_action, axis=1)
-
-        # --- TABLO VE GÖRSELLEŞTİRME ---
-        st.subheader("📊 Genişletilmiş Segment ve CRM Özeti")
+        crm_summary.columns = ['n_customers', 'crm_target_rate', 'avg_spend', 'avg_prev_purchases', 'avg_freq', 'promo_rate']
         
-        # Oran formatlama
-        fmt_df = crm_summary.copy()
-        if "Abonelik Oranı" in fmt_df:
-            fmt_df["Abonelik Oranı"] = (fmt_df["Abonelik Oranı"] * 100).round(1).astype(str) + '%'
+        # CRM Aksiyon Belirleme Fonksiyonu (Dinamik Eşikler)
+        spend_median = crm_summary["avg_spend"].median()
+        target_mean = crm_summary["crm_target_rate"].mean()
         
-        st.dataframe(fmt_df.style.background_gradient(cmap='RdYlGn', subset=['Ort. Harcama'] if 'Ort. Harcama' in fmt_df else []))
-
-        # Detay Kartları
+        def crm_action(row):
+            # Yüksek abonelik oranı + Yüksek harcama = Premium segment
+            if row["crm_target_rate"] >= target_mean and row["avg_spend"] >= spend_median:
+                return "Upsell / Premium teklif"
+            # Yüksek abonelik oranı ama düşük harcama = Potansiyel
+            elif row["crm_target_rate"] >= target_mean:
+                return "Quick win / light incentive"
+            # Düşük abonelik oranı + Yüksek harcama = Önemli ama kayıp
+            elif row["crm_target_rate"] < target_mean and row["avg_spend"] >= spend_median:
+                return "Retention / özel ilgi"
+            # Düşük abonelik oranı + Düşük harcama = Risk
+            else:
+                return "Winback / agresif promosyon"
+        
+        crm_summary['action'] = crm_summary.apply(crm_action, axis=1)
+        
+        # Segment isimlerini ekle
+        if 'profile' in st.session_state:
+            profile = st.session_state['profile']
+            segment_names = profile['Segment İsmi'].to_dict()
+            crm_summary['Segment İsmi'] = crm_summary.index.map(segment_names)
+            crm_summary = crm_summary[['Segment İsmi', 'n_customers', 'crm_target_rate', 'avg_spend', 
+                                       'avg_prev_purchases', 'avg_freq', 'promo_rate', 'action']]
+        
+        # Türkçe kolon isimleri
+        crm_summary_display = crm_summary.rename(columns={
+            'Segment İsmi': 'Segment',
+            'n_customers': 'Müşteri Sayısı',
+            'crm_target_rate': 'Abonelik Oranı',
+            'avg_spend': 'Ort. Harcama',
+            'avg_prev_purchases': 'Ort. Alışveriş',
+            'avg_freq': 'Ort. Frekans',
+            'promo_rate': 'Promo Kullanım',
+            'action': 'Önerilen Aksiyon'
+        })
+        
+        crm_summary_display['Abonelik Oranı'] = (crm_summary_display['Abonelik Oranı'] * 100).round(1)
+        crm_summary_display['Promo Kullanım'] = (crm_summary_display['Promo Kullanım'] * 100).round(1)
+        
+        # Abonelik oranına göre sırala (yüksekten düşüğe)
+        crm_summary_display = crm_summary_display.sort_values('Abonelik Oranı', ascending=False)
+        
+        st.dataframe(crm_summary_display.style.background_gradient(
+            cmap='RdYlGn', 
+            subset=['Abonelik Oranı', 'Ort. Harcama']
+        ).format({
+            'Abonelik Oranı': '{:.1f}%',
+            'Ort. Harcama': '${:.2f}',
+            'Ort. Alışveriş': '{:.1f}',
+            'Ort. Frekans': '{:.1f}',
+            'Promo Kullanım': '{:.1f}%'
+        }))
+        
+        # İstatistik bilgileri
+        st.info(f"""
+        📊 **CRM Eşik Değerleri:**
+        - Abonelik Ortalaması: %{target_mean*100:.1f}
+        - Harcama Medyanı: ${spend_median:.2f}
+        
+        **Aksiyon Matrisi:**
+        - Premium: Abonelik ≥ Ortalama VE Harcama ≥ Medyan
+        - Quick Win: Abonelik ≥ Ortalama VE Harcama < Medyan
+        - Retention: Abonelik < Ortalama VE Harcama ≥ Medyan  
+        - Winback: Abonelik < Ortalama VE Harcama < Medyan
+        """)
+        
+        st.caption(f"ℹ️ **Not:** 5 cluster var, ancak her cluster yukarıdaki kriterlere göre 4 CRM aksiyonundan birine atanır.")
+        
         st.divider()
-        cols = st.columns(len(crm_summary))
-        for i, (idx, row) in enumerate(crm_summary.iterrows()):
-            with cols[i]:
-                st.metric(f"Cluster {idx}", f"{row['Önerilen Aksiyon'].split(' / ')[0]}")
-                st.caption(f"Fit: {row.get('FitScore', 'N/A')}")
-                st.caption(f"Rel: {row.get('RelSpend', 'N/A')}")
-
+        
+        # Aksiyon Öncelik Grafiği
+        st.subheader("🎯 Aksiyon Öncelik Matrisi")
+        
+        fig_matrix, ax_matrix = plt.subplots(figsize=(12, 8))
+        
+        # Scatter plot: X = Abonelik Oranı, Y = Ortalama Harcama
+        colors_map = {
+            'Upsell / Premium teklif': '#28a745',
+            'Quick win / light incentive': '#17a2b8',
+            'Retention / özel ilgi': '#ff8c00',
+            'Winback / agresif promosyon': '#dc3545'
+        }
+        
+        for action in crm_summary['action'].unique():
+            mask = crm_summary['action'] == action
+            ax_matrix.scatter(
+                crm_summary[mask]['crm_target_rate'] * 100,
+                crm_summary[mask]['avg_spend'],
+                s=crm_summary[mask]['n_customers'] * 2,
+                c=colors_map.get(action, '#999999'),
+                label=action,
+                alpha=0.6,
+                edgecolors='white',
+                linewidth=2
+            )
+        
+        # Eşik çizgileri (ortalama ve medyan bazlı)
+        ax_matrix.axvline(target_mean * 100, color='purple', linestyle='--', linewidth=1.5, alpha=0.6, 
+                         label=f'Abonelik Ortalaması: {target_mean*100:.1f}%')
+        ax_matrix.axhline(spend_median, color='blue', linestyle='--', linewidth=1.5, alpha=0.6, 
+                         label=f'Harcama Medyanı: ${spend_median:.2f}')
+        
+        ax_matrix.set_xlabel('Abonelik Oranı (%)', fontsize=12)
+        ax_matrix.set_ylabel('Ortalama Harcama ($)', fontsize=12)
+        ax_matrix.set_title('CRM Aksiyon Öncelik Matrisi (Balon Boyutu = Müşteri Sayısı)', fontsize=14)
+        ax_matrix.legend(loc='best', fontsize=9)
+        ax_matrix.grid(True, alpha=0.3)
+        plt.tight_layout()
+        st.pyplot(fig_matrix)
+        
+        st.divider()
+        
+        # CRM Stratejileri - Detaylı
+        st.subheader("📋 Segment Bazlı Detaylı CRM Stratejileri")
+        
+        # Aksiyon türüne göre gruplama
+        action_groups = {
+            'Upsell / Premium teklif': '🟢 Yüksek Değerli - Premium Odaklı',
+            'Quick win / light incentive': '🔵 Hızlı Kazanım - Hafif Teşvik',
+            'Retention / özel ilgi': '🟠 Elde Tutma - Özel İlgi Gerekli',
+            'Winback / agresif promosyon': '🔴 Risk Altında - Kazanım Odaklı'
+        }
+        
+        for action_type, action_title in action_groups.items():
+            segments_in_action = crm_summary[crm_summary['action'] == action_type]
+            
+            if len(segments_in_action) > 0:
+                with st.expander(f"{action_title} ({len(segments_in_action)} Segment)", expanded=True):
+                    
+                    for idx, row in segments_in_action.iterrows():
+                        segment_name = row.get('Segment İsmi', f'Cluster {idx}')
+                        
+                        st.markdown(f"### 📌 {segment_name}")
+                        
+                        col_crm1, col_crm2, col_crm3 = st.columns(3)
+                        
+                        with col_crm1:
+                            st.metric("Müşteri Sayısı", f"{row['n_customers']:.0f}")
+                            st.metric("Abonelik Oranı", f"{row['crm_target_rate']*100:.1f}%")
+                        
+                        with col_crm2:
+                            st.metric("Ort. Harcama", f"${row['avg_spend']:.2f}")
+                            st.metric("Ort. Alışveriş", f"{row['avg_prev_purchases']:.1f}")
+                        
+                        with col_crm3:
+                            st.metric("Ort. Frekans", f"{row['avg_freq']:.1f}")
+                            st.metric("Promo Kullanım", f"{row['promo_rate']*100:.1f}%")
+                        
+                        st.markdown("**🎯 Önerilen Aksiyonlar:**")
+                        
+                        if action_type == 'Upsell / Premium teklif':
+                            st.success("✅ **Premium Strateji**")
+                            st.write("• VIP üyelik programı ve özel avantajlar sun")
+                            st.write("• Exclusive ürün erişimi ve erken lansman duyuruları")
+                            st.write("• Kişiselleştirilmiş alışveriş deneyimi")
+                            st.write("• Ücretsiz premium kargo ve öncelikli müşteri hizmetleri")
+                        
+                        elif action_type == 'Quick win / light incentive':
+                            st.info("ℹ️ **Hızlı Kazanım Stratejisi**")
+                            st.write("• Hafif teşvikler ile abonelik tamamlama oranını artır")
+                            st.write("• İlk ay %15-20 indirim gibi düşük maliyetli kampanyalar")
+                            st.write("• Abonelik avantajlarını vurgulayan email serisi")
+                            st.write("• Sadakat puanı bonusu ile motivasyon artır")
+                        
+                        elif action_type == 'Retention / özel ilgi':
+                            st.warning("⚠️ **Elde Tutma Stratejisi**")
+                            st.write("• Yüksek harcama yapıyorlar ama abone değiller - ÖNEMLİ SEGMENT!")
+                            st.write("• Özel müşteri temsilcisi ataması")
+                            st.write("• Kişiselleştirilmiş abonelik paketleri")
+                            st.write("• VIP etkinlikler ve özel davetler")
+                            st.write("• Abonelik faydalarını vurgulayan birebir görüşmeler")
+                            
+                        else:  # Winback
+                            st.error("🔴 **Geri Kazanım Stratejisi**")
+                            st.write("• Agresif promosyon kampanyaları (%40-50 indirim)")
+                            st.write("• 'Seni özledik' mesajları ile kişisel iletişim")
+                            st.write("• Müşteri memnuniyeti anketi ve geri bildirim toplama")
+                            st.write("• Yeniden aktivasyon bonusu ve sadakat puanları")
+                        
+                        st.divider()
+            else:
+                st.info(f"ℹ️ {action_title} kategorisinde segment bulunmuyor.")
+        
+        st.divider()
+        
+        # Özet İstatistikler
+        st.subheader("📈 CRM Strateji Özeti")
+        
+        summary_col1, summary_col2, summary_col3, summary_col4 = st.columns(4)
+        
+        with summary_col1:
+            premium_count = len(crm_summary[crm_summary['action'] == 'Upsell / Premium teklif'])
+            premium_customers = crm_summary[crm_summary['action'] == 'Upsell / Premium teklif']['n_customers'].sum() if premium_count > 0 else 0
+            st.success(f"**🟢 Premium**")
+            st.metric("Segment Sayısı", premium_count)
+            st.metric("Toplam Müşteri", f"{premium_customers:.0f}")
+        
+        with summary_col2:
+            quick_count = len(crm_summary[crm_summary['action'] == 'Quick win / light incentive'])
+            quick_customers = crm_summary[crm_summary['action'] == 'Quick win / light incentive']['n_customers'].sum() if quick_count > 0 else 0
+            st.info(f"**🔵 Quick Win**")
+            st.metric("Segment Sayısı", quick_count)
+            st.metric("Toplam Müşteri", f"{quick_customers:.0f}")
+        
+        with summary_col3:
+            retention_count = len(crm_summary[crm_summary['action'] == 'Retention / özel ilgi'])
+            retention_customers = crm_summary[crm_summary['action'] == 'Retention / özel ilgi']['n_customers'].sum() if retention_count > 0 else 0
+            st.warning(f"**🟠 Retention**")
+            st.metric("Segment Sayısı", retention_count)
+            st.metric("Toplam Müşteri", f"{retention_customers:.0f}")
+        
+        with summary_col4:
+            winback_count = len(crm_summary[crm_summary['action'] == 'Winback / agresif promosyon'])
+            winback_customers = crm_summary[crm_summary['action'] == 'Winback / agresif promosyon']['n_customers'].sum() if winback_count > 0 else 0
+            st.error(f"**🔴 Winback**")
+            st.metric("Segment Sayısı", winback_count)
+            st.metric("Toplam Müşteri", f"{winback_customers:.0f}")
+    
     else:
-        st.warning("⚠️ CRM analizi için önce modeli eğitin (Tab 3 veya 4).")
+        st.warning("⚠️ CRM analizi için önce modeli eğitmelisiniz.")
 # =============================================================================
 # TAB 6: SİMÜLATÖR
 # =============================================================================
