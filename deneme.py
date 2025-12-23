@@ -491,19 +491,6 @@ with tab_eda:
     col6.metric("Ortalama Rating", f"{df_eng["REVIEW_RATING"].mean():.1f}")
     st.divider()
 
-    with tab_eda:
-    st.header("📊 Keşifsel Veri Analizi")
-
-    # Genel Metrikler
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    col1.metric("Müşteri Sayısı", df_raw.shape[0])
-    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
-    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
-    col4.metric("Ortalama Harcama", f"${df_eng['TOTAL_SPEND_WEIGHTED_NEW'].mean():.1f}")
-    col5.metric("Ortalama Alışveriş Sıklığı", f"{df_eng['PREVIOUS_PURCHASES'].mean():.1f}")
-    col6.metric("Ortalama Rating", f"{df_eng['REVIEW_RATING'].mean():.1f}")
-    st.divider()
-
     # =============================================================================
     # 1) DENGESİZ DAĞILIMLAR (GENDER / CATEGORY / SIZE / SUBSCRIPTION)
     # =============================================================================
