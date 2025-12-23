@@ -1542,8 +1542,7 @@ with tab_comp:
 
         
             # ==================== TEST PERFORMANSI (THRESHOLD OPTIMIZED) ====================
-            st.subheader("🎯 Test Seti Performansları (Threshold Optimized)")
-            
+                        
             # Threshold optimizasyon fonksiyonu
             def find_best_threshold_for_recall(y_true, y_prob, target_recall=0.85):
                 thresholds = np.linspace(0.05, 0.95, 19)
@@ -1590,7 +1589,6 @@ with tab_comp:
                     "recall": recall_score(y_test_comp, y_pred_default, zero_division=0),
                     "f1": f1_score(y_test_comp, y_pred_default, zero_division=0)
                 }
-                
 
                 # ✅ 2) THRESHOLD OPTIMIZED
                 target_recall = 0.85
@@ -1626,19 +1624,15 @@ with tab_comp:
                 model_predictions[name] = {"y_proba": y_proba, "y_pred": y_pred_opt, "threshold": best_thr}
 
                 progress_bar2.progress((idx + 1) / len(models))
-
-            # ✅ BURASI ARTIK LOOP DIŞINDA
-            status_text2.text("✅ Test değerlendirmesi tamamlandı!")
-
-            st.divider()
+                
+            status_text2.text("✅ Threshold optimizasyonu tamamlandı.")
+            progress_bar2.empty()
             
             st.session_state["comparison_results"] = results
             st.session_state["comparison_predictions"] = model_predictions
             st.session_state["threshold_details_default"] = threshold_details_default
             st.session_state["threshold_details"] = threshold_details_optimized
             st.session_state["y_test_comp"] = y_test_comp
-        
-        st.success("✅ Karşılaştırma tamamlandı!")
     
     # SONUÇLAR BÖLÜMÜ
     if 'comparison_results' in st.session_state and st.session_state['comparison_results']:
