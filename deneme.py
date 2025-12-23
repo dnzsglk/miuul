@@ -588,61 +588,47 @@ with tab_eda:
     # =============================================================================
     # 2) YÜKSEK İLİŞKİ: DISCOUNT_APPLIED vs PROMO_CODE_USED
     # =============================================================================
-    st.subheader("🔗 Korelasyon Kontrolü: Discount Applied vs Promo Code")
+    
+    st.subheader("🔍 Yüksek Korelasyon Kontrolü: Discount vs Promo")
 
-    if "DISCOUNT_APPLIED" in df_raw.columns and "PROMO_CODE_USED" in df_raw.columns:
-        ct = pd.crosstab(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"])
-        ct_norm = ct.div(ct.sum(axis=1), axis=0) * 100
+    threshold = 0.80  # karar eşiği
 
-        colx, coly = st.columns(2)
-
-        with colx:
-            st.markdown("**Çapraz Tablo (Adet)**")
-            st.dataframe(ct)
-
-        with coly:
-            st.markdown("**Çapraz Tablo (Satır %)**")
-            st.dataframe(ct_norm.round(1).astype(str) + "%")
-
-        # Heatmap
-        figh, axh = plt.subplots(figsize=(7, 4.8))
-        sns.heatmap(ct_norm, annot=True, fmt=".1f", ax=axh)
-        axh.set_title("Discount Applied vs Promo Code Used (Satır %)")
-        axh.set_xlabel("PROMO_CODE_USED")
-        axh.set_ylabel("DISCOUNT_APPLIED")
-        st.pyplot(figh, use_container_width=True)
-        plt.close(figh)
-
-        # Cramer's V
+    if ("DISCOUNT_APPLIED" in df_raw.columns) and ("PROMO_CODE_USED" in df_raw.columns):
         cv = cramers_v(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"])
-        st.metric("Cramer's V", f"{cv:.3f}")
 
         st.markdown(
-            """
-            **Karar:**
-            Bu iki değişken aynı davranışı temsil ediyorsa (yüksek ilişki),
-            modelde ikisini birden tutmak **redundant** olur ve bazı modellerde gereksiz karmaşıklık yaratır.
-            Bu yüzden `DISCOUNT_APPLIED` değişkenini drop ettik.
+            f"""
+            Bu bölümde **DISCOUNT_APPLIED** ile **PROMO_CODE_USED** arasındaki ilişkiyi kontrol ediyoruz.
+
+            - Ölçüm: **Cramer's V** (0 → ilişki yok, 1 → çok güçlü ilişki)
+            - Eşik: **{threshold}**
             """
         )
 
-        # Drop kararını kodla göstermek
-        threshold = 0.80
-        if cv > threshold:
-            st.warning(f"Cramer's V = {cv:.3f} > {threshold} → `DISCOUNT_APPLIED` drop edilir (pipeline).")
-            st.code(
-                """
-    # Pipeline içinde:
-    if 'DISCOUNT_APPLIED' in df_rare.columns and 'PROMO_CODE_USED' in df_rare.columns:
-        cv_score = cramers_v(df_rare['DISCOUNT_APPLIED'], df_rare['PROMO_CODE_USED'])
-        if cv_score > 0.8:
-            df_rare.drop(columns=['DISCOUNT_APPLIED'], inplace=True)
-                    """.strip()
+        c1, c2 = st.columns([1, 1.3])
+        with c1:
+            st.metric("Cramer's V", f"{cv:.3f}")
+
+            if cv > threshold:
+                st.warning(
+                    f"Cramer's V = {cv:.3f} > {threshold} → değişkenler çok benzer bilgi taşıyor.\n\n"
+                    "✅ Modelde multicollinearity / redundant feature riskini azaltmak için **DISCOUNT_APPLIED** drop edildi."
                 )
             else:
-                st.success(f"Cramer's V = {cv:.3f} ≤ {threshold} → drop etmeye gerek yok.")
-        else:
-            st.info("Bu analiz için DISCOUNT_APPLIED ve PROMO_CODE_USED kolonları bulunamadı.")
+                st.success(
+                    f"Cramer's V = {cv:.3f} ≤ {threshold} → drop etmeye gerek yok."
+                )
+
+        with c2:
+            # İsteğe bağlı: ilişkiyi tablo olarak göster
+            ct = pd.crosstab(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"], normalize="index") * 100
+            st.markdown("**Çapraz Tablo (satır bazlı %):**")
+            st.dataframe(ct.style.format("{:.1f}%"))
+
+    else:
+        st.info("Bu analiz için DISCOUNT_APPLIED ve PROMO_CODE_USED kolonları bulunamadı.")
+
+    st.divider()
 
     # Görselleştirmeler
     st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
