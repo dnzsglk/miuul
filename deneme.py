@@ -486,8 +486,7 @@ with tab_home:
 
     st.image(
         str(img_path),
-        use_container_width=True"
-    )
+        use_container_width=True)
 
     st.divider()
 
