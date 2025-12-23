@@ -1453,7 +1453,7 @@ with tab_comp:
             
             progress_bar = st.progress(0)
             status_text = st.empty()
-            
+
             for idx, (name, model) in enumerate(models):
                 status_text.text(f"Cross-validation yapılıyor: {name}...")
                 cv_scores = cross_val_score(model, X_train_s_comp, y_train_comp, cv=5, scoring='roc_auc', n_jobs=-1)
@@ -1506,81 +1506,77 @@ with tab_comp:
             # Her model için optimal threshold ile test
             results = []
             model_predictions = {}
-            threshold_details = {}
-            
+
+            threshold_details_default = {}      
+            threshold_details_optimized = {}    
+
             progress_bar2 = st.progress(0)
             status_text2 = st.empty()
-            
+
             for idx, (name, model) in enumerate(models):
                 status_text2.text(f"Test ediliyor: {name}...")
-                
+
                 # Model eğitimi
                 model.fit(X_train_s_comp, y_train_comp)
-                
+
                 # Probability predictions
-                if hasattr(model, 'predict_proba'):
+                if hasattr(model, "predict_proba"):
                     y_proba = model.predict_proba(X_test_s_comp)[:, 1]
                 else:
                     y_proba = model.decision_function(X_test_s_comp)
-                
-                # Threshold Optimizasyonu
+
+                # ✅ 1) THRESHOLD ÖNCESİ (default = 0.50)
+                y_pred_default = (y_proba >= 0.50).astype(int)
+                threshold_details_default[name] = {
+                    "threshold": 0.50,
+                    "precision": precision_score(y_test_comp, y_pred_default, zero_division=0),
+                    "recall": recall_score(y_test_comp, y_pred_default, zero_division=0),
+                    "f1": f1_score(y_test_comp, y_pred_default, zero_division=0),
+                }
+
+                # ✅ 2) THRESHOLD OPTIMIZED
                 target_recall = 0.85
                 best_thr_result = find_best_threshold_for_recall(y_test_comp, y_proba, target_recall=target_recall)
-                
+
                 if best_thr_result:
                     best_thr = best_thr_result["thr"]
-                    y_pred = (y_proba >= best_thr).astype(int)
-                    
-                    threshold_details[name] = {
-                        'threshold': best_thr,
-                        'precision': best_thr_result['precision'],
-                        'recall': best_thr_result['recall'],
-                        'f1': best_thr_result['f1']
+                    y_pred_opt = (y_proba >= best_thr).astype(int)
+
+                    threshold_details_optimized[name] = {
+                        "threshold": best_thr,
+                        "precision": best_thr_result["precision"],
+                        "recall": best_thr_result["recall"],
+                        "f1": best_thr_result["f1"],
                     }
                 else:
-                    # Fallback to 0.50
                     best_thr = 0.50
-                    y_pred = (y_proba >= best_thr).astype(int)
-                    
-                    threshold_details[name] = {
-                        'threshold': best_thr,
-                        'precision': precision_score(y_test_comp, y_pred, zero_division=0),
-                        'recall': recall_score(y_test_comp, y_pred, zero_division=0),
-                        'f1': f1_score(y_test_comp, y_pred, zero_division=0)
-                    }
-                
-                # Metrikler
-                acc = accuracy_score(y_test_comp, y_pred)
-                prec = precision_score(y_test_comp, y_pred, zero_division=0)
-                rec = recall_score(y_test_comp, y_pred, zero_division=0)
-                f1 = f1_score(y_test_comp, y_pred, zero_division=0)
-                roc_auc = roc_auc_score(y_test_comp, y_proba)
-                
+                    y_pred_opt = y_pred_default
+
+                    threshold_details_optimized[name] = threshold_details_default[name]
+
+                # Metrikler (optimized sonuç tablon için)
                 results.append({
-                    'Model': name,
-                    'Accuracy': acc,
-                    'Precision': prec,
-                    'Recall': rec,
-                    'F1-Score': f1,
-                    'ROC-AUC': roc_auc,
-                    'Optimal Threshold': best_thr
+                    "Model": name,
+                    "Accuracy": accuracy_score(y_test_comp, y_pred_opt),
+                    "Precision": precision_score(y_test_comp, y_pred_opt, zero_division=0),
+                    "Recall": recall_score(y_test_comp, y_pred_opt, zero_division=0),
+                    "F1-Score": f1_score(y_test_comp, y_pred_opt, zero_division=0),
+                    "ROC-AUC": roc_auc_score(y_test_comp, y_proba),
+                    "Optimal Threshold": best_thr
                 })
-                
-                model_predictions[name] = {
-                    'y_proba': y_proba,
-                    'y_pred': y_pred,
-                    'threshold': best_thr
-                }
-                
+
+                model_predictions[name] = {"y_proba": y_proba, "y_pred": y_pred_opt, "threshold": best_thr}
+
                 progress_bar2.progress((idx + 1) / len(models))
-            
+
+            # ✅ BURASI ARTIK LOOP DIŞINDA
             status_text2.text("✅ Test değerlendirmesi tamamlandı!")
-            
-            # Sonuçları kaydet
-            st.session_state['comparison_results'] = results
-            st.session_state['comparison_predictions'] = model_predictions
-            st.session_state['threshold_details'] = threshold_details
-            st.session_state['y_test_comp'] = y_test_comp
+
+            st.session_state["comparison_results"] = results
+            st.session_state["comparison_predictions"] = model_predictions
+            st.session_state["threshold_details_default"] = threshold_details_default
+            st.session_state["threshold_details"] = threshold_details_optimized
+            st.session_state["y_test_comp"] = y_test_comp
         
         st.success("✅ Karşılaştırma tamamlandı!")
     
@@ -1679,7 +1675,7 @@ with tab_comp:
         
         num_models = len(st.session_state['comparison_predictions'])
         cols_cm = st.columns(num_models)
-        
+
         for idx, (name, preds) in enumerate(st.session_state['comparison_predictions'].items()):
             with cols_cm[idx]:
                 st.markdown(f"**{name}**")
