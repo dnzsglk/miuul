@@ -531,7 +531,6 @@ with tab_eda:
             colors=sns.color_palette("Set2"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax.set_title("Cinsiyet")
         ax.set_aspect("equal")
         st.pyplot(fig)
         plt.close(fig)
@@ -550,7 +549,6 @@ with tab_eda:
             colors=sns.color_palette("Pastel1"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax.set_title("Abonelik")
         ax.set_aspect("equal")
         st.pyplot(fig)
         plt.close(fig)
@@ -569,7 +567,6 @@ with tab_eda:
             colors=sns.color_palette("tab20"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax.set_title("Beden")
         ax.set_aspect("equal")
         st.pyplot(fig)
         plt.close(fig)
@@ -588,7 +585,6 @@ with tab_eda:
             colors=sns.color_palette("Spectral"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax.set_title("Kategori")
         ax.set_aspect("equal")
         st.pyplot(fig)
         plt.close(fig)
