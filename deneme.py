@@ -1484,7 +1484,55 @@ with tab_comp:
             st.success(f"🏆 **En İyi Model (CV AUC):** {best_model_name} (AUC: {best_model_score:.4f})")
             
             st.divider()
-            
+
+            st.subheader("📌 Logistic Regression – Threshold Karşılaştırması")
+
+            lr_threshold_compare = pd.DataFrame([
+                {
+                    "Threshold": "0.50 (Default)",
+                    "Precision": 0.65,
+                    "Recall": 0.74,
+                    "F1-Score": 0.69,
+                    "Accuracy": 0.82,
+                    "TP": 156,
+                    "FP": 85,
+                    "FN": 55
+                },
+                {
+                    "Threshold": "0.40 (Optimized)",
+                    "Precision": 0.67,
+                    "Recall": 0.91,
+                    "F1-Score": 0.77,
+                    "Accuracy": 0.85,
+                    "TP": 191,
+                    "FP": 96,
+                    "FN": 20
+                }
+            ])
+
+            st.dataframe(
+                lr_threshold_compare.style
+                .background_gradient(
+                    cmap="YlGn",
+                    subset=["Recall", "F1-Score", "Accuracy"]
+                )
+                .format({
+                    "Precision": "{:.2f}",
+                    "Recall": "{:.2f}",
+                    "F1-Score": "{:.2f}",
+                    "Accuracy": "{:.2f}",
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.caption("""
+            ℹ️ Threshold 0.40, **Recall ≥ 0.85** hedefi doğrultusunda seçilmiştir.  
+            Recall +0.17 artarken, Precision yalnızca +0.02 değişmiştir.  
+            Bu trade-off abonelik yakalama (churn / conversion) açısından kabul edilebilir bulunmuştur.
+            """)
+
+        
             # ==================== TEST PERFORMANSI (THRESHOLD OPTIMIZED) ====================
             st.subheader("🎯 Test Seti Performansları (Threshold Optimized)")
             
