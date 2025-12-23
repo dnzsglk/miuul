@@ -283,6 +283,13 @@ def cramers_v(x, y):
     chi2 = chi2_contingency(confusion_matrix)[0]
     n = confusion_matrix.sum().sum()
     r, k = confusion_matrix.shape
+    
+    # 🔒 Guard: tek satır veya tek sütun varsa
+    if r < 2 or k < 2:
+        return 0.0
+        
+    chi2 = chi2_contingency(confusion)[0]
+    n = confusion.to_numpy().sum()
     return np.sqrt(chi2 / (n * (min(r, k) - 1)))
 
 # =============================================================================
@@ -1151,6 +1158,9 @@ with tab_model:
             
             importances = pd.Series(rf_selector.feature_importances_, index=X_train_base.columns).sort_values(ascending=False)
             keep_cols = importances[importances >= 0.01].index.tolist()
+            if len(keep_cols) == 0:
+                keep_cols = importances.head(20).index.tolist()  # fallback
+
             
             X_train = X_train_base[keep_cols]
             X_test = X_test_base[keep_cols]
@@ -1683,6 +1693,7 @@ with tab_comp:
             ax_comp1.set_ylim([0, 1.1])
             plt.tight_layout()
             st.pyplot(fig_comp1)
+            plt.close(fig_comp1)
         
         with col_c2:
             st.markdown("**ROC Curves Karşılaştırması**")
@@ -1701,6 +1712,7 @@ with tab_comp:
             ax_roc_comp.grid(True, alpha=0.3)
             plt.tight_layout()
             st.pyplot(fig_roc_comp)
+            plt.close(fig_roc_comp)
         
         st.divider()
         
@@ -1797,6 +1809,8 @@ with tab_comp:
             ax_thr.set_ylim([0, 1.05])
             plt.tight_layout()
             st.pyplot(fig_thr)
+            plt.close(fig_thr)
+
             
             # Threshold tablosu
             st.markdown("**📋 Threshold Değerleri Tablosu:**")
@@ -1892,45 +1906,6 @@ with tab_crm:
         """)
         
         st.divider()
-        
-        # Aksiyon Öncelik Grafiği
-        st.subheader("🎯 Aksiyon Öncelik Matrisi")
-        
-        fig_matrix, ax_matrix = plt.subplots(figsize=(12, 8))
-        
-        colors_map = {
-            'Upsell / Premium teklif': '#28a745',
-            'Quick win / light incentive': '#17a2b8',
-            'Retention / özel ilgi': '#ff8c00',
-            'Winback / agresif promosyon': '#dc3545'
-        }
-        
-        for action in crm_summary['action'].unique():
-            mask = crm_summary['action'] == action
-            ax_matrix.scatter(
-                crm_summary[mask]['crm_target_rate'] * 100,
-                crm_summary[mask]['avg_spend'],
-                s=crm_summary[mask]['n_customers'] * 2,
-                c=colors_map.get(action, '#999999'),
-                label=action,
-                alpha=0.6,
-                edgecolors='white',
-                linewidth=2
-            )
-        
-        ax_matrix.axvline(target_mean * 100, color='purple', linestyle='--', linewidth=1.5, alpha=0.6, 
-                         label=f'Abonelik Ortalaması: {target_mean*100:.1f}%')
-        ax_matrix.axhline(spend_median, color='blue', linestyle='--', linewidth=1.5, alpha=0.6, 
-                         label=f'Harcama Medyanı: ${spend_median:.2f}')
-        
-        ax_matrix.set_xlabel('Abonelik Oranı (%)', fontsize=12)
-        ax_matrix.set_ylabel('Ortalama Harcama ($)', fontsize=12)
-        ax_matrix.set_title('CRM Aksiyon Öncelik Matrisi (Balon Boyutu = Müşteri Sayısı)', fontsize=14)
-        ax_matrix.legend(loc='best', fontsize=9)
-        ax_matrix.grid(True, alpha=0.3)
-        plt.tight_layout()
-        st.pyplot(fig_matrix)
-        plt.close(fig_matrix)
     
     else:
         st.warning("⚠️ CRM analizi için önce Segmentasyon sekmesine gidin.")
