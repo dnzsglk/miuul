@@ -1622,33 +1622,6 @@ with tab_comp:
             # ✅ BURASI ARTIK LOOP DIŞINDA
             status_text2.text("✅ Test değerlendirmesi tamamlandı!")
 
-            # ==================== SADECE LOGISTIC REGRESSION: THRESHOLD ÖNCESİ (0.50) ====================
-            st.subheader("📌 Threshold Öncesi (0.50) — Sadece Logistic Regression")
-
-            if "Logistic Regression" in threshold_details_default:
-                lr0 = threshold_details_default["Logistic Regression"]
-                lr0_df = pd.DataFrame([{
-                    "Model": "Logistic Regression",
-                    "Threshold": lr0["threshold"],
-                    "Precision": lr0["precision"],
-                    "Recall": lr0["recall"],
-                    "F1-Score": lr0["f1"]
-                }])
-
-                st.dataframe(
-                    lr0_df.style.format({
-                        "Threshold": "{:.2f}",
-                        "Precision": "{:.4f}",
-                        "Recall": "{:.4f}",
-                        "F1-Score": "{:.4f}",
-                    }),
-                    use_container_width=True,
-                    hide_index=True
-                 )
-                st.caption("ℹ️ Bu satır, optimizasyon yapılmadan önce varsayılan threshold=0.50 ile Logistic Regression sonuçlarını gösterir.")
-            else:
-                st.info("Logistic Regression bulunamadı.")
-
             st.divider()
             
             st.session_state["comparison_results"] = results
