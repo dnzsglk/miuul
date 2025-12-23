@@ -1525,14 +1525,16 @@ with tab_comp:
                 else:
                     y_proba = model.decision_function(X_test_s_comp)
 
-                # ✅ 1) THRESHOLD ÖNCESİ (default = 0.50)
+                # ✅ THRESHOLD ÖNCESİ (Default = 0.50)
                 y_pred_default = (y_proba >= 0.50).astype(int)
+
                 threshold_details_default[name] = {
                     "threshold": 0.50,
                     "precision": precision_score(y_test_comp, y_pred_default, zero_division=0),
                     "recall": recall_score(y_test_comp, y_pred_default, zero_division=0),
-                    "f1": f1_score(y_test_comp, y_pred_default, zero_division=0),
+                    "f1": f1_score(y_test_comp, y_pred_default, zero_division=0)
                 }
+                
 
                 # ✅ 2) THRESHOLD OPTIMIZED
                 target_recall = 0.85
@@ -1572,6 +1574,38 @@ with tab_comp:
             # ✅ BURASI ARTIK LOOP DIŞINDA
             status_text2.text("✅ Test değerlendirmesi tamamlandı!")
 
+            # ==================== THRESHOLD ÖNCESİ (0.50) ÖZET TABLO ====================
+            st.subheader("📌 Threshold Öncesi (0.50) Performans Özeti")
+
+            default_df = (
+                pd.DataFrame(threshold_details_default)
+                .T
+                .reset_index()
+                .rename(columns={
+                    "index": "Model",
+                    "threshold": "Threshold",
+                    "precision": "Precision",
+                    "recall": "Recall",
+                    "f1": "F1-Score"
+                })
+            )
+
+            st.dataframe(
+                default_df.style
+                .background_gradient(cmap="YlGn", subset=["Precision", "Recall", "F1-Score"])
+                .format({
+                    "Threshold": "{:.2f}",
+                    "Precision": "{:.4f}",
+                    "Recall": "{:.4f}",
+                    "F1-Score": "{:.4f}",
+                }),
+                use_container_width=True,
+                hide_index=True
+            )
+
+            st.caption("ℹ️ Bu tablo, threshold optimizasyonu uygulanmadan önce varsayılan 0.50 ile elde edilen sonuçları gösterir.")
+            st.divider()
+            
             st.session_state["comparison_results"] = results
             st.session_state["comparison_predictions"] = model_predictions
             st.session_state["threshold_details_default"] = threshold_details_default
