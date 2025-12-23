@@ -509,11 +509,21 @@ with tab_eda:
     - Gereksiz karmaşıklığı önler
     """)
 
+    # ===============================
+    # 📊 Kategorik Dağılım Grafikleri
+    # ===============================
+
+    st.subheader("📊 Kategorik Değişken Dağılımları")
+
+    # === 1. SATIR ===
     col_pie1, col_pie2 = st.columns(2)
 
     with col_pie1:
+        st.markdown("*Cinsiyet Dağılımı*")
+
         gender_counts = df_raw["GENDER"].value_counts()
-        fig_g, ax_g = plt.subplots(figsize=(4, 4))
+        fig_g, ax_g = plt.subplots(figsize=(8, 5))
+
         ax_g.pie(
             gender_counts.values,
             labels=gender_counts.index,
@@ -522,13 +532,18 @@ with tab_eda:
             colors=sns.color_palette("Set2"),
             wedgeprops={"edgecolor": "white"}
         )
+
         ax_g.set_title("Cinsiyet Dağılımı")
         st.pyplot(fig_g)
         plt.close(fig_g)
 
+
     with col_pie2:
+        st.markdown("*Abonelik (Target) Dağılımı*")
+
         sub_counts = df_raw["SUBSCRIPTION_STATUS"].value_counts()
-        fig_s, ax_s = plt.subplots(figsize=(4, 4))
+        fig_s, ax_s = plt.subplots(figsize=(8, 5))
+
         ax_s.pie(
             sub_counts.values,
             labels=sub_counts.index,
@@ -537,15 +552,21 @@ with tab_eda:
             colors=sns.color_palette("Pastel1"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax_s.set_title("Abonelik Dağılımı (Target Balance)")
+
+        ax_s.set_title("Abonelik Dağılımı")
         st.pyplot(fig_s)
         plt.close(fig_s)
 
+
+    # === 2. SATIR ===
     col_pie3, col_pie4 = st.columns(2)
 
     with col_pie3:
+        st.markdown("*Beden (Size) Dağılımı*")
+
         size_counts = df_raw["SIZE"].value_counts()
-        fig_sz, ax_sz = plt.subplots(figsize=(4, 4))
+        fig_sz, ax_sz = plt.subplots(figsize=(8, 5))
+
         ax_sz.pie(
             size_counts.values,
             labels=size_counts.index,
@@ -554,13 +575,18 @@ with tab_eda:
             colors=sns.color_palette("tab20"),
             wedgeprops={"edgecolor": "white"}
         )
-        ax_sz.set_title("Beden (Size) Dağılımı")
+
+        ax_sz.set_title("Beden Dağılımı")
         st.pyplot(fig_sz)
         plt.close(fig_sz)
 
+
     with col_pie4:
+        st.markdown("*Kategori Dağılımı*")
+
         cat_counts = df_raw["CATEGORY"].value_counts()
-        fig_cat, ax_cat = plt.subplots(figsize=(4, 4))
+        fig_cat, ax_cat = plt.subplots(figsize=(8, 5))
+
         ax_cat.pie(
             cat_counts.values,
             labels=cat_counts.index,
@@ -569,6 +595,7 @@ with tab_eda:
             colors=sns.color_palette("Spectral"),
             wedgeprops={"edgecolor": "white"}
         )
+
         ax_cat.set_title("Kategori Dağılımı")
         st.pyplot(fig_cat)
         plt.close(fig_cat)
