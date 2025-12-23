@@ -503,12 +503,7 @@ with tab_eda:
     neden olabilir.
 
     📌 **Önemli not:** Hiçbir alt kategori **\\%1’in altında** olmadığı için **rare encoding uygulanmamıştır**.
-
-    **Ne yaptık?**
-    - **Train/Test split** sırasında hedef değişken için `stratify=SUBSCRIPTION_STATUS` kullandık → train/test sınıf oranı korunur.
-    - Kategorik değişkenleri **One-Hot Encoding** ile sayısallaştırdık (`get_dummies`).
-    - Ağaç tabanlı modellerde (özellikle RandomForest) **class_weight='balanced'** kullanarak dengesiz hedefin etkisini azalttık.
-
+    
     Bu yaklaşım:
     - Kategorik temsil gücünü korur
     - Gereksiz karmaşıklığı önler
@@ -518,7 +513,7 @@ with tab_eda:
 
     with col_pie1:
         gender_counts = df_raw["GENDER"].value_counts()
-        fig_g, ax_g = plt.subplots(figsize=(6, 6))
+        fig_g, ax_g = plt.subplots(figsize=(4, 4))
         ax_g.pie(
             gender_counts.values,
             labels=gender_counts.index,
@@ -533,7 +528,7 @@ with tab_eda:
 
     with col_pie2:
         sub_counts = df_raw["SUBSCRIPTION_STATUS"].value_counts()
-        fig_s, ax_s = plt.subplots(figsize=(6, 6))
+        fig_s, ax_s = plt.subplots(figsize=(4, 4))
         ax_s.pie(
             sub_counts.values,
             labels=sub_counts.index,
@@ -550,7 +545,7 @@ with tab_eda:
 
     with col_pie3:
         size_counts = df_raw["SIZE"].value_counts()
-        fig_sz, ax_sz = plt.subplots(figsize=(6, 6))
+        fig_sz, ax_sz = plt.subplots(figsize=(4, 4))
         ax_sz.pie(
             size_counts.values,
             labels=size_counts.index,
@@ -565,7 +560,7 @@ with tab_eda:
 
     with col_pie4:
         cat_counts = df_raw["CATEGORY"].value_counts()
-        fig_cat, ax_cat = plt.subplots(figsize=(6, 6))
+        fig_cat, ax_cat = plt.subplots(figsize=(4, 4))
         ax_cat.pie(
             cat_counts.values,
             labels=cat_counts.index,
@@ -580,9 +575,10 @@ with tab_eda:
 
     st.info("""
     📌 **Modelleme Notu**
-    - Kategorik değişkenlerde \\%1 altı kategori olmadığı için **rare encoding yapılmadı**
-    - Kategoriler **one-hot encoding** ile modele dahil edildi
-    - Target dengesizliği için **class_weight** ve **threshold optimizasyonu** kullanıldı
+    - Kategorik değişkenlerde \\%1 altı kategori olmadığı için **rare encoding yapılmadı**.
+    - Kategoriler **one-hot encoding** ile modele dahil edildi.
+    - **Train/Test split** sırasında hedef değişken için `stratify=SUBSCRIPTION_STATUS` kullandık → train/test sınıf oranı korunur.
+    - Target dengesizliği için **class_weight** ve **threshold optimizasyonu** kullanıldı.
     """)
 
     # =============================================================================
