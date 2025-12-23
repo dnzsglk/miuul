@@ -1898,6 +1898,63 @@ with tab_crm:
         """)
         
         st.divider()
+
+        # ======================================================
+        # 💡 Segment Bazlı Aksiyon Playbook (CRM Tab)
+        # ======================================================
+        st.subheader("💡 Segment Bazlı Aksiyon Playbook")
+
+        # Playbook için cluster indexi kaybetmeyelim diye ayrı df
+        playbook_df = crm_summary_display.copy()
+
+        # Eğer index Cluster ise onu kolona alalım
+        if playbook_df.index.name is not None or playbook_df.index.dtype != int:
+            playbook_df = playbook_df.reset_index().rename(columns={"index": "Cluster"})
+        else:
+            playbook_df = playbook_df.reset_index().rename(columns={"index": "Cluster"})
+
+        for _, r in playbook_df.iterrows():
+            cl = int(r["Cluster"])
+            with st.expander(f"📌 Cluster {cl} – {r['Segment']} ({r['Önerilen Aksiyon']})"):
+
+                c1, c2, c3 = st.columns(3)
+
+                with c1:
+                    st.metric("Müşteri", f"{r['Müşteri Sayısı']:.0f}")
+                    st.metric("Abonelik", f"{r['Abonelik Oranı']:.1f}%")
+
+                with c2:
+                    st.metric("Ort. Harcama", f"{r['Ort. Harcama']}")
+                    st.metric("Ort. Alışveriş", f"{r['Ort. Alışveriş']:.1f}")
+
+                with c3:
+                    st.metric("Promo", f"{r['Promo Kullanım']:.1f}%")
+                    st.metric("Frekans", f"{r['Ort. Frekans']:.1f}")
+
+                # Aksiyon açıklamaları (senin mevcut action üretimine göre)
+                if "Upsell" in r["Önerilen Aksiyon"]:
+                    st.success("✅ Upsell / Premium")
+                    st.write("• Premium/Plus abonelik: ücretsiz kargo + özel kampanya erişimi")
+                    st.write("• Checkout ve satın alma sonrası 1 tık abonelik önerisi")
+                    st.write("• 30 gün deneme veya ilk 3 ay indirim (A/B test)")
+
+                elif "Quick win" in r["Önerilen Aksiyon"] or "light incentive" in r["Önerilen Aksiyon"]:
+                    st.info("ℹ️ Quick win / Light incentive")
+                    st.write("• Küçük teşvik: ücretsiz kargo eşiği, mini kupon")
+                    st.write("• Abonelik faydasını kısa mesajla anlat (1-2 cümle)")
+                    st.write("• E-posta + onsite banner ile düşük maliyetli dönüşüm")
+
+                elif "Retention" in r["Önerilen Aksiyon"] or "özel ilgi" in r["Önerilen Aksiyon"]:
+                    st.warning("🟠 Retention / Özel İlgi")
+                    st.write("• Kişiselleştirilmiş öneri + özel avantaj paketi")
+                    st.write("• Sadakat programı / VIP kademesi gibi ‘değer’ odaklı teklif")
+                    st.write("• Müşteri destek teması (memnuniyet artırma)")
+
+                else:
+                    st.error("🔴 Winback / Agresif Promosyon")
+                    st.write("• 48 saatlik teklif + FOMO mesaj")
+                    st.write("• SMS/Push ağırlıklı yeniden aktivasyon")
+                    st.write("• Kısa anket + kişiselleştirme")
     
     else:
         st.warning("⚠️ CRM analizi için önce Segmentasyon sekmesine gidin.")
