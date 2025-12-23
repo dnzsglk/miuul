@@ -639,7 +639,7 @@ with tab_eda:
                 )
 
         # ---- ALT SATIR: ÇAPRAZ TABLO ----
-        st.markdown("### 📊 Çapraz Tablo (Satır Bazlı Yüzdeler)")
+        st.markdown("### 📊 Discount vs Promo – Koşullu Dağılım (%)")
 
         ct = (
             pd.crosstab(
@@ -649,14 +649,34 @@ with tab_eda:
             ) * 100
         )
 
+        ct.index = ct.index.map({
+            "No": "İndirim Yok",
+            "Yes": "İndirim Var",
+            0: "İndirim Yok",
+            1: "İndirim Var"
+        })
+
+        ct.columns = ct.columns.map({
+            "No": "Promo Yok",
+            "Yes": "Promo Var",
+            0: "Promo Yok",
+            1: "Promo Var"
+        })
+
         st.dataframe(
             ct.style
-            .background_gradient(cmap="Blues")
+            .background_gradient(cmap="YlGnBu", axis=None)
             .format("{:.1f}%")
+            .set_properties(**{
+                "font-weight": "bold",
+                "text-align": "center"
+            })
         )
 
-    else:
-        st.info("Bu analiz için DISCOUNT_APPLIED ve PROMO_CODE_USED kolonları bulunamadı.")
+        st.caption(
+            "ℹ️ Satırlar koşulludur. Örneğin: **İndirim Var** satırı, indirim uygulanan müşterilerin "
+            "yüzde kaçının promosyon da kullandığını gösterir."
+        )
 
     st.divider()
 
