@@ -1932,28 +1932,20 @@ with tab_crm:
                     st.metric("Frekans", f"{r['Ort. Frekans']:.1f}")
 
                 # Aksiyon açıklamaları (senin mevcut action üretimine göre)
-                if "Upsell" in r["Önerilen Aksiyon"]:
-                    st.success("✅ Upsell / Premium")
-                    st.write("• Premium/Plus abonelik: ücretsiz kargo + özel kampanya erişimi")
-                    st.write("• Checkout ve satın alma sonrası 1 tık abonelik önerisi")
-                    st.write("• 30 gün deneme veya ilk 3 ay indirim (A/B test)")
-
-                elif "Quick win" in r["Önerilen Aksiyon"] or "light incentive" in r["Önerilen Aksiyon"]:
-                    st.info("ℹ️ Quick win / Light incentive")
-                    st.write("• Küçük teşvik: ücretsiz kargo eşiği, mini kupon")
-                    st.write("• Abonelik faydasını kısa mesajla anlat (1-2 cümle)")
-                    st.write("• E-posta + onsite banner ile düşük maliyetli dönüşüm")
-
-                elif "Retention" in r["Önerilen Aksiyon"] or "özel ilgi" in r["Önerilen Aksiyon"]:
-                    st.warning("🟠 Retention / Özel İlgi")
-                    st.write("• Kişiselleştirilmiş öneri + özel avantaj paketi")
-                    st.write("• Sadakat programı / VIP kademesi gibi ‘değer’ odaklı teklif")
-                    st.write("• Müşteri destek teması (memnuniyet artırma)")
-
-                else:
-                    st.error("🔴 Winback / Agresif Promosyon")
-                    st.write("• 48 saatlik teklif + FOMO mesaj")
-                    st.write("• SMS/Push ağırlıklı yeniden aktivasyon")
+                if cl in [3, 0]: 
+                    st.success("✅ Upsell / Premium") 
+                    st.write("• Premium/Plus abonelik: ücretsiz kargo + özel kampanya erişimi") 
+                    st.write("• Checkout ve satın alma sonrası 1 tık abonelik önerisi") 
+                    st.write("• 30 gün deneme veya ilk 3 ay indirim (A/B test)") 
+                elif cl == 2: 
+                    st.info("ℹ️ Nurture / Education") 
+                    st.write("• Tasarruf simülasyonu: 'Abone olsaydınız X₺ daha az öderdiniz'") 
+                    st.write("• Fayda anlatımı: fiyat değil, değer ve avantaj") 
+                    st.write("• Email drip: 3 adım (fayda → örnek hesap → CTA)") 
+                else: 
+                    st.error("🔴 Winback / Aggressive Promo") 
+                    st.write("• 48 saatlik teklif + FOMO mesaj") 
+                    st.write("• SMS/Push ağırlıklı yeniden aktivasyon") 
                     st.write("• Kısa anket + kişiselleştirme")
     
     else:
