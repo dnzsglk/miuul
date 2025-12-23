@@ -117,7 +117,6 @@ import warnings
 from scipy.stats import chi2_contingency
 from datetime import datetime
 import streamlit as st
-from components.playbook import render_segment_playbook
 
 # Veri İşleme
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -1086,7 +1085,7 @@ with tab_seg:
 
     # ✅ Profili session state'e kaydet
     st.session_state["profile"] = segment_profiles
-    st.session_state["display_df"] = display_df  # ✅ bunu ekle / tut
+    st.session_state["display_df"] = display_df
 
     st.divider()
 
