@@ -442,7 +442,8 @@ if 'X_columns' not in st.session_state:
     st.session_state['X_columns'] = None
 
 # Sekmeler
-tab_eda, tab_seg, tab_model, tab_comp, tab_crm, tab_sim = st.tabs([
+tab_home, tab_eda, tab_seg, tab_model, tab_comp, tab_crm, tab_sim = st.tabs([
+    "🏠 Home",
     "📊 EDA", 
     "🧩 Segmentasyon", 
     "🎯 Model Eğitimi",
@@ -478,124 +479,127 @@ with st.spinner('Veri işleniyor...'):
 # =============================================================================
 # 🧾 BAŞLIK SAYFASI (Landing / Cover)
 # =============================================================================
+# =============================================================================
+# 🧾 BAŞLIK SAYFASI (Landing / Cover)
+# =============================================================================
+from pathlib import Path
 
-st.markdown("""
-<div style="
-    padding: 30px 28px;
-    border-radius: 20px;
-    background: linear-gradient(135deg, rgba(214,40,40,0.20), rgba(244,162,97,0.12));
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 12px 35px rgba(0,0,0,0.35);
-">
-    <div style="text-align:center;">
-        <h1 style="
-            margin: 10px 0 6px 0; 
-            font-size: 46px; 
-            letter-spacing: 1px;
-            font-weight: 800;
-        ">
-            INSIGHT HACKERS
-        </h1>
+with tab_home:
+    img_path = Path(__file__).parent / "assets" / "insight_hackers_cover.jpeg"
 
-        <div style="
-            display:inline-block;
-            padding: 6px 16px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.15);
-            font-size: 16px;
-            margin-bottom: 18px;
-        ">
-            “Breaking Data, Building Segments”
+    st.image(
+        str(img_path),
+        use_container_width=True,
+        caption="Deconstruct Data. Reconstruct Value."
+    )
+
+    st.markdown("""
+    <div style="
+        padding: 30px 28px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(214,40,40,0.20), rgba(244,162,97,0.12));
+        border: 1px solid rgba(255,255,255,0.12);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.35);
+    ">
+        <div style="text-align:center;">
+            <h1 style="
+                margin: 10px 0 6px 0; 
+                font-size: 46px; 
+                letter-spacing: 1px;
+                font-weight: 800;
+            ">
+                INSIGHT HACKERS
+            </h1>
+
+            <div style="
+                display:inline-block;
+                padding: 6px 16px;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.07);
+                border: 1px solid rgba(255,255,255,0.15);
+                font-size: 16px;
+                margin-bottom: 18px;
+            ">
+                “Breaking Data, Building Segments”
+            </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
-
-# -----------------------------
-# LOGO / GÖRSEL
-# -----------------------------
-st.image(
-    "/mnt/data/09bb6a9f-ba3e-41c7-b39a-e759a152c83c.png",
-    use_container_width=True,
-    caption="Deconstruct Data. Reconstruct Value."
-)
-
-st.divider()
-
-# =============================================================================
-# 👥 TAKIM ÜYELERİ
-# =============================================================================
-st.subheader("👥 Takım Üyeleri")
-
-col_t1, col_t2, col_t3, col_t4 = st.columns(4)
-
-with col_t1:
-    st.markdown("""
-    <div style="text-align:center;">
-        <div style="font-size:32px;">🧠</div>
-        <b>Sinem Elif Elma</b><br/>
-        <span style="font-size:13px; opacity:0.85;">Data & Analytics</span>
-    </div>
     """, unsafe_allow_html=True)
 
-with col_t2:
+    st.divider()
+
+    # =============================================================================
+    # 👥 TAKIM ÜYELERİ
+    # =============================================================================
+    st.subheader("👥 Takım Üyeleri")
+
+    col_t1, col_t2, col_t3, col_t4 = st.columns(4)
+
+    with col_t1:
+        st.markdown("""
+        <div style="text-align:center;">
+            <div style="font-size:32px;">🧠</div>
+            <b>Sinem Elif Elma</b><br/>
+            <span style="font-size:13px; opacity:0.85;">Data & Analytics</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_t2:
+        st.markdown("""
+        <div style="text-align:center;">
+            <div style="font-size:32px;">📊</div>
+            <b>Deniz Sağlık</b><br/>
+            <span style="font-size:13px; opacity:0.85;">EDA & Visualization</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_t3:
+        st.markdown("""
+        <div style="text-align:center;">
+            <div style="font-size:32px;">🤖</div>
+            <b>Ömer Faruk Çiçek</b><br/>
+            <span style="font-size:13px; opacity:0.85;">Modeling & ML</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_t4:
+        st.markdown("""
+        <div style="text-align:center;">
+            <div style="font-size:32px;">🧩</div>
+            <b>Ece Yurdusevimli Metin</b><br/>
+            <span style="font-size:13px; opacity:0.85;">Segmentation & CRM</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # =============================================================================
+    # 📌 BUSINESS PROBLEM
+    # =============================================================================
+    st.subheader("📌 Business Problem")
+
     st.markdown("""
-    <div style="text-align:center;">
-        <div style="font-size:32px;">📊</div>
-        <b>Deniz Sağlık</b><br/>
-        <span style="font-size:13px; opacity:0.85;">EDA & Visualization</span>
-    </div>
-    """, unsafe_allow_html=True)
+    Bir e-ticaret şirketi;  
+    **müşteri aboneliğini artırmak**, **promosyon bütçesini verimli kullanmak** ve  
+    **müşteri davranışlarını daha iyi anlamak** istemektedir.
 
-with col_t3:
-    st.markdown("""
-    <div style="text-align:center;">
-        <div style="font-size:32px;">🤖</div>
-        <b>Ömer faruk Çiçek</b><br/>
-        <span style="font-size:13px; opacity:0.85;">Modeling & ML</span>
-    </div>
-    """, unsafe_allow_html=True)
+    Ancak müşteri tabanı:
+    - Harcama düzeyi  
+    - Alışveriş sıklığı  
+    - Promosyon duyarlılığı  
+    - Demografik özellikler  
+    açısından oldukça heterojendir.
 
-with col_t4:
-    st.markdown("""
-    <div style="text-align:center;">
-        <div style="font-size:32px;">🧩</div>
-        <b>Ece Yurdusevimli Metin</b><br/>
-        <span style="font-size:13px; opacity:0.85;">Segmentation & CRM</span>
-    </div>
-    """, unsafe_allow_html=True)
+    ### Bu projede amaç:
+    - Müşterileri davranışsal özelliklerine göre **segmentlere ayırmak**
+    - Her segment için **abonelik potansiyelini** ve **gelir değerini** özetlemek
+    - Segment bazlı **CRM aksiyonları** (Upsell, Nurture, Winback) önermek
+    - Modelleme sürecinde **leakage**, **dengesiz target** ve **yüksek korelasyon**
+      gibi riskleri kontrol ederek güvenilir bir analitik yapı kurmak
 
-st.divider()
-
-# =============================================================================
-# 📌 BUSINESS PROBLEM
-# =============================================================================
-st.subheader("📌 Business Problem")
-
-st.markdown("""
-Bir e-ticaret şirketi;  
-**müşteri aboneliğini artırmak**, **promosyon bütçesini verimli kullanmak** ve  
-**müşteri davranışlarını daha iyi anlamak** istemektedir.
-
-Ancak müşteri tabanı:
-- Harcama düzeyi  
-- Alışveriş sıklığı  
-- Promosyon duyarlılığı  
-- Demografik özellikler  
-
-açısından oldukça heterojendir.
-
-### Bu projede amaç:
-- Müşterileri davranışsal özelliklerine göre **segmentlere ayırmak**
-- Her segment için **abonelik potansiyelini** ve **gelir değerini** özetlemek
-- Segment bazlı **CRM aksiyonları** (Upsell, Nurture, Winback) önermek
-- Modelleme sürecinde **leakage**, **dengesiz target** ve **yüksek korelasyon**
-  gibi riskleri kontrol ederek güvenilir bir analitik yapı kurmak
-
-✅ **Çıktı:**  
-Segment Profilleri • Aksiyon Playbook • Abonelik Tahmin Modeli • Güçlü EDA
-""")
+    ✅ **Çıktı:**  
+    Segment Profilleri • Aksiyon Playbook • Abonelik Tahmin Modeli • Güçlü EDA
+    """)
 
 st.divider()
 
