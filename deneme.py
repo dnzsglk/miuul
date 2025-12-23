@@ -522,7 +522,7 @@ with tab_eda:
         st.markdown("*Cinsiyet Dağılımı*")
         
         gender_counts = df_raw["GENDER"].value_counts()
-        fig_g, ax_g = plt.subplots(figsize=(8, 5))
+        fig_g, ax_g = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
         ax_g.pie(
             gender_counts.values,
@@ -539,7 +539,7 @@ with tab_eda:
     with col_pie2:
         st.markdown("*Abonelik (Target) Dağılımı*")
         sub_counts = df_raw["SUBSCRIPTION_STATUS"].value_counts()
-        fig_s, ax_s = plt.subplots(figsize=(8, 5))
+        fig_s, ax_s = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
         ax_s.pie(
             sub_counts.values,
@@ -559,7 +559,7 @@ with tab_eda:
     with col_pie3:
         st.markdown("*Beden (Size) Dağılımı*")
         size_counts = df_raw["SIZE"].value_counts()
-        fig_sz, ax_sz = plt.subplots(figsize=(8, 5))
+        fig_sz, ax_sz = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
         ax_sz.pie(
             size_counts.values,
@@ -576,7 +576,7 @@ with tab_eda:
     with col_pie4:
         st.markdown("*Kategori Dağılımı*")
         cat_counts = df_raw["CATEGORY"].value_counts()
-        fig_cat, ax_cat = plt.subplots(figsize=(8, 5))
+        fig_cat, ax_cat = plt.subplots(figsize=(6, 4), constrained_layout=True)
 
         ax_cat.pie(
             cat_counts.values,
