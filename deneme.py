@@ -491,6 +491,76 @@ with tab_eda:
     col6.metric("Ortalama Rating", f"{df_eng["REVIEW_RATING"].mean():.1f}")
     st.divider()
 
+    with tab_eda:
+    st.header("📊 Keşifsel Veri Analizi")
+
+    # Genel Metrikler
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1.metric("Müşteri Sayısı", df_raw.shape[0])
+    col2.metric("Ortalama Yaş", f"{df_raw['AGE'].mean():.1f}")
+    col3.metric("Abonelik Oranı", f"%{(df_raw['SUBSCRIPTION_STATUS']=='Yes').mean()*100:.1f}")
+    col4.metric("Ortalama Harcama", f"${df_eng['TOTAL_SPEND_WEIGHTED_NEW'].mean():.1f}")
+    col5.metric("Ortalama Alışveriş Sıklığı", f"{df_eng['PREVIOUS_PURCHASES'].mean():.1f}")
+    col6.metric("Ortalama Rating", f"{df_eng['REVIEW_RATING'].mean():.1f}")
+    st.divider()
+
+    # =============================================================================
+    # 1) DENGESİZ DAĞILIMLAR (GENDER / CATEGORY / SIZE / SUBSCRIPTION)
+    # =============================================================================
+    st.subheader("⚖️ Veri Dağılımı Kontrolü: Dengesiz Kategoriler")
+
+    st.markdown(
+        """
+        Bu veri setinde bazı kategorik değişkenlerin sınıfları **eşit dağılmıyor** (imbalance).
+        Bu durum özellikle sınıflandırma modelinde **yanlı tahmin** riskini artırabilir.
+
+        **Ne yaptık?**
+        - **Train/Test split** sırasında hedef değişken için `stratify=SUBSCRIPTION_STATUS` kullandık → train/test sınıf oranı korunur.
+        - Kategorik değişkenleri **One-Hot Encoding** ile sayısallaştırdık (`get_dummies`).
+        - Ağaç tabanlı modellerde (özellikle RandomForest) **class_weight='balanced'** kullanarak dengesiz hedefin etkisini azalttık.
+        """
+    )
+
+    def plot_count_and_pct(df, col, title):
+        vc = df[col].value_counts(dropna=False)
+        pct = (vc / vc.sum() * 100).round(1)
+        plot_df = pd.DataFrame({col: vc.index.astype(str), "Count": vc.values, "Pct": pct.values})
+
+        fig, ax = plt.subplots(figsize=(8, 4.8))
+        sns.barplot(data=plot_df, x="Count", y=col, ax=ax)
+
+        # yüzde etiketleri
+        for i, (cnt, p) in enumerate(zip(plot_df["Count"], plot_df["Pct"])):
+            ax.text(cnt, i, f"  {p:.1f}%", va="center")
+
+        ax.set_title(title)
+        ax.set_xlabel("Adet (Count)")
+        ax.set_ylabel(col)
+        ax.grid(True, alpha=0.2, axis="x")
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+
+    cA, cB = st.columns(2)
+    with cA:
+        plot_count_and_pct(df_raw, "GENDER", "Cinsiyet Dağılımı (Count ve %)")
+        plot_count_and_pct(df_raw, "SIZE", "Beden Dağılımı (Count ve %)")
+    with cB:
+        plot_count_and_pct(df_raw, "CATEGORY", "Kategori Dağılımı (Count ve %)")
+        plot_count_and_pct(df_raw, "SUBSCRIPTION_STATUS", "Abonelik Dağılımı (Count ve %)")
+
+    st.info(
+        """
+        **Özet (Model tarafı):**
+        - Dengesiz hedef (Subscription) olduğunda, stratified split + class_weight yaklaşımı modelin
+          sadece çoğunluğu tahmin etmesini engeller.
+        """
+    )
+
+    st.divider()
+
+    # Buradan sonra senin mevcut grafiklerin gelsin:
+    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+
     # Görselleştirmeler
     st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
 
