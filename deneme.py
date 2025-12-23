@@ -1918,6 +1918,27 @@ with tab_sim:
     if 'final_model' not in st.session_state or st.session_state['final_model'] is None:
         st.warning("⚠️ Simülatörü kullanmak için önce 'Model Eğitimi' sekmesinden modeli eğitmelisiniz.")
     else:
+        # 👇 BUTONU BOYAYAN CSS TAM BURAYA
+        st.markdown(
+            """
+            <style>
+            div.stButton > button {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: 600;
+                border-radius: 8px;
+                height: 3em;
+                width: 100%;
+            }
+            div.stButton > button:hover {
+                background-color: #45a049;
+                color: white;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
         with st.form("sim_form"):
             c1, c2, c3 = st.columns(3)
             age = c1.slider("Yaş", 18, 70, 30)
