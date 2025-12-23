@@ -584,7 +584,7 @@ with tab_eda:
     # =============================================================================
     # 2) YÜKSEK İLİŞKİ: DISCOUNT_APPLIED vs PROMO_CODE_USED
     # =============================================================================
-    
+
     st.subheader("🔍 Yüksek Korelasyon Kontrolü: Discount vs Promo")
 
     threshold = 0.80  # karar eşiği
@@ -601,25 +601,43 @@ with tab_eda:
             """
         )
 
-        c1, c2 = st.columns([1, 1.3])
-        with c1:
+        # ---- ÜST SATIR: METRİK + KARAR ----
+        col_v, col_note = st.columns([1, 2])
+
+        with col_v:
             st.metric("Cramer's V", f"{cv:.3f}")
 
+        with col_note:
             if cv > threshold:
                 st.warning(
-                    f"Cramer's V = {cv:.3f} > {threshold} → değişkenler çok benzer bilgi taşıyor.\n\n"
-                    "✅ Modelde multicollinearity / redundant feature riskini azaltmak için **DISCOUNT_APPLIED** drop edildi."
+                    f"⚠️ **Yüksek ilişki tespit edildi**\n\n"
+                    f"Cramer's V = {cv:.3f} > {threshold}\n\n"
+                    "Modelde **bilgi tekrarını (multicollinearity)** azaltmak için "
+                    "**DISCOUNT_APPLIED** değişkeni pipeline'da drop edilmiştir."
                 )
             else:
                 st.success(
-                    f"Cramer's V = {cv:.3f} ≤ {threshold} → drop etmeye gerek yok."
+                    f"✅ **Drop gerekmiyor**\n\n"
+                    f"Cramer's V = {cv:.3f} ≤ {threshold}\n\n"
+                    "İki değişken yeterince bağımsız bilgi taşımaktadır."
                 )
 
-        with c2:
-            # İsteğe bağlı: ilişkiyi tablo olarak göster
-            ct = pd.crosstab(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"], normalize="index") * 100
-            st.markdown("**Çapraz Tablo (satır bazlı %):**")
-            st.dataframe(ct.style.format("{:.1f}%"))
+        # ---- ALT SATIR: ÇAPRAZ TABLO ----
+        st.markdown("### 📊 Çapraz Tablo (Satır Bazlı Yüzdeler)")
+
+        ct = (
+            pd.crosstab(
+                df_raw["DISCOUNT_APPLIED"],
+                df_raw["PROMO_CODE_USED"],
+                normalize="index"
+            ) * 100
+        )
+
+        st.dataframe(
+            ct.style
+            .background_gradient(cmap="Blues")
+            .format("{:.1f}%")
+        )
 
     else:
         st.info("Bu analiz için DISCOUNT_APPLIED ve PROMO_CODE_USED kolonları bulunamadı.")
