@@ -514,80 +514,84 @@ with tab_eda:
     # ===============================
 
     st.subheader("📊 Kategorik Değişken Dağılımları")
+    
+    col1, col2, col3, col4 = st.columns(4)
 
-    # === 1. SATIR ===
-    col_pie1, col_pie2 = st.columns(2)
-
-    with col_pie1:
+    # --------- Gender ---------
+    with col1:
         st.markdown("*Cinsiyet Dağılımı*")
-        
-        gender_counts = df_raw["GENDER"].value_counts()
-        fig_g, ax_g = plt.subplots(figsize=(6, 4), constrained_layout=True)
+        data = df_raw["GENDER"].value_counts()
 
-        ax_g.pie(
-            gender_counts.values,
-            labels=gender_counts.index,
-            autopct='%1.1f%%',
+        fig, ax = plt.subplots(figsize=(4, 3), constrained_layout=True)
+        ax.pie(
+            data.values,
+            labels=data.index,
+            autopct='%1.0f%%',
             startangle=90,
             colors=sns.color_palette("Set2"),
             wedgeprops={"edgecolor": "white"}
         )
-        st.pyplot(fig_g)
-        plt.close(fig_g)
+        ax.set_title("Cinsiyet")
+        ax.set_aspect("equal")
+        st.pyplot(fig)
+        plt.close(fig)
 
-
-    with col_pie2:
+    # --------- Subscription ---------
+    with col2:
         st.markdown("*Abonelik (Target) Dağılımı*")
-        sub_counts = df_raw["SUBSCRIPTION_STATUS"].value_counts()
-        fig_s, ax_s = plt.subplots(figsize=(6, 4), constrained_layout=True)
+        data = df_raw["SUBSCRIPTION_STATUS"].value_counts()
 
-        ax_s.pie(
-            sub_counts.values,
-            labels=sub_counts.index,
-            autopct='%1.1f%%',
+        fig, ax = plt.subplots(figsize=(4, 3), constrained_layout=True)
+        ax.pie(
+            data.values,
+            labels=data.index,
+            autopct='%1.0f%%',
             startangle=90,
             colors=sns.color_palette("Pastel1"),
             wedgeprops={"edgecolor": "white"}
         )
-        st.pyplot(fig_s)
-        plt.close(fig_s)
+        ax.set_title("Abonelik")
+        ax.set_aspect("equal")
+        st.pyplot(fig)
+        plt.close(fig)
 
-
-    # === 2. SATIR ===
-    col_pie3, col_pie4 = st.columns(2)
-
-    with col_pie3:
+    # --------- Size ---------
+    with col3:
         st.markdown("*Beden (Size) Dağılımı*")
-        size_counts = df_raw["SIZE"].value_counts()
-        fig_sz, ax_sz = plt.subplots(figsize=(6, 4), constrained_layout=True)
+        data = df_raw["SIZE"].value_counts()
 
-        ax_sz.pie(
-            size_counts.values,
-            labels=size_counts.index,
-            autopct='%1.1f%%',
+        fig, ax = plt.subplots(figsize=(4, 3), constrained_layout=True)
+        ax.pie(
+            data.values,
+            labels=data.index,
+            autopct='%1.0f%%',
             startangle=90,
             colors=sns.color_palette("tab20"),
             wedgeprops={"edgecolor": "white"}
         )
-        st.pyplot(fig_sz)
-        plt.close(fig_sz)
+        ax.set_title("Beden")
+        ax.set_aspect("equal")
+        st.pyplot(fig)
+        plt.close(fig)
 
-
-    with col_pie4:
+    # --------- Category ---------
+    with col4:
         st.markdown("*Kategori Dağılımı*")
-        cat_counts = df_raw["CATEGORY"].value_counts()
-        fig_cat, ax_cat = plt.subplots(figsize=(6, 4), constrained_layout=True)
+        data = df_raw["CATEGORY"].value_counts()
 
-        ax_cat.pie(
-            cat_counts.values,
-            labels=cat_counts.index,
-            autopct='%1.1f%%',
+        fig, ax = plt.subplots(figsize=(4, 3), constrained_layout=True)
+        ax.pie(
+            data.values,
+            labels=data.index,
+            autopct='%1.0f%%',
             startangle=90,
             colors=sns.color_palette("Spectral"),
             wedgeprops={"edgecolor": "white"}
         )
-        st.pyplot(fig_cat)
-        plt.close(fig_cat)
+        ax.set_title("Kategori")
+        ax.set_aspect("equal")
+        st.pyplot(fig)
+        plt.close(fig)
 
     st.info("""
     📌 **Modelleme Notu**
