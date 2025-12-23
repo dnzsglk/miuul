@@ -756,6 +756,44 @@ with tab_eda:
 with tab_seg:
     st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
 
+    st.subheader("🧩 Segmentasyonun Dayandığı Davranışsal Değişkenler")
+
+    st.markdown("""
+    Segmentasyon modeli, müşterilerin **satın alma davranışlarını** yansıtan sayısal değişkenlerle oluşturulmuştur.
+
+    Amaç:
+    - Demografik değil **aksiyon alınabilir** segmentler üretmek  
+    - Harcama ve satın alma yoğunluğu ile **gerçek davranışları** yakalamak
+    """)
+
+    seg_features_df = pd.DataFrame({
+        "Feature": [
+            "PURCHASE_AMOUNT_(USD)",
+            "PREVIOUS_PURCHASES",
+            "FREQUENCY_VALUE_NEW",
+            "SPEND_PER_PURCHASE_NEW",
+            "TOTAL_SPEND_WEIGHTED_NEW"
+        ],
+        "Ne Temsil Ediyor?": [
+            "Tek seferlik ortalama harcama düzeyi",
+            "Müşteri ile kurulan toplam ilişki derinliği (satın alma sayısı)",
+            "Yıllıklaştırılmış satın alma sıklığı (Weekly=52, Monthly=12 vb.)",
+            "Sepet başına değer: Harcama / (Satın alma + 1)",
+            "Toplam harcama gücü: Satın alma sayısı × harcama"
+        ]
+    })
+
+    st.dataframe(seg_features_df, use_container_width=True, hide_index=True)
+
+    st.info("""
+    📌 **Metodoloji Notu**
+    - Segmentasyon yalnızca **numerik ve davranışsal** değişkenlerle yapılmıştır.
+    - Abonelik gibi hedef değişkenler segmentasyona dahil edilmemiştir (**leakage-free**).
+    - Bu sayede segmentler CRM aksiyonları için daha güvenilir hale gelir.
+    """)
+
+    st.divider()
+
     segmentation_features = [
         "PURCHASE_AMOUNT_(USD)",
         "PREVIOUS_PURCHASES",
