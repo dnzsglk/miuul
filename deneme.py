@@ -756,7 +756,7 @@ with tab_eda:
 with tab_seg:
     st.header("🧩 K-Means Müşteri Segmentasyonu (Leakage-Free)")
 
-    st.subheader("🧩 Segmentasyonun Dayandığı Davranışsal Değişkenler")
+    st.subheader("*Segmentasyonun Dayandığı Davranışsal Değişkenler*")
 
     st.markdown("""
     Segmentasyon modeli, müşterilerin **satın alma davranışlarını** yansıtan sayısal değişkenlerle oluşturulmuştur.
@@ -920,9 +920,7 @@ with tab_seg:
         4: "Kararsızlar",
         1: "Sessiz Kitle"
     }
-    segment_profiles["Segment İsmi"] = (
-        segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
-    )
+    segment_profiles["Segment İsmi"] = segment_profiles["Cluster"].map(cluster_name_map).fillna("Genel Segment")
 
     cluster_action_map = {
         3: "Upsell / Premium",
@@ -933,28 +931,26 @@ with tab_seg:
     }
     segment_profiles["Önerilen Aksiyon"] = segment_profiles["Cluster"].map(cluster_action_map).fillna("Genel")
 
+    # ✅ Daraltılmış tablo (tek sefer)
     display_df = segment_profiles[[
-        "Cluster", "Segment İsmi", "N", "Yas", "Harcama_USD", "Sub_Pct",
-        "PrevPur", "Odeme", "Kargo", "FitScore", "RelSpend",
-        "Promo_Pct", "TotWght", "Freq", "Önerilen Aksiyon"
-    ]].sort_values("Cluster")
-
-    display_df = display_df.reset_index(drop=True)
+        "Cluster", "Segment İsmi", "N", "Yas", "Harcama_USD",
+        "PrevPur", "Freq", "TotWght", "Promo_Pct", "Sub_Pct", "Önerilen Aksiyon"
+    ]].sort_values("Cluster").reset_index(drop=True)
 
     st.dataframe(
-        display_df.reset_index(drop=True).style
+        display_df.style
         .background_gradient(cmap="Blues", subset=["TotWght", "Sub_Pct", "Promo_Pct"])
         .format({
             "Yas": "{:.1f}",
             "Harcama_USD": "{:.1f}",
-            "Sub_Pct": "{:.1f}%",
             "PrevPur": "{:.1f}",
-            "FitScore": "{:.4f}",
-            "RelSpend": "{:.2f}",
-            "Promo_Pct": "{:.1f}%",
-            "TotWght": "{:.1f}",
             "Freq": "{:.1f}",
-        })
+            "TotWght": "{:.1f}",
+            "Promo_Pct": "{:.1f}%",
+            "Sub_Pct": "{:.1f}%"
+        }),
+        use_container_width=True,
+        hide_index=True
     )
 
     # ✅ Profili session state'e kaydet
