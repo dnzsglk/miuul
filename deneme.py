@@ -279,17 +279,15 @@ def rare_encoder(dataframe, rare_perc):
     return temp_df
 
 def cramers_v(x, y):
-    confusion_matrix = pd.crosstab(x, y)
-    chi2 = chi2_contingency(confusion_matrix)[0]
-    n = confusion_matrix.sum().sum()
-    r, k = confusion_matrix.shape
-    
-    # 🔒 Guard: tek satır veya tek sütun varsa
+    cm = pd.crosstab(x, y)
+    r, k = cm.shape
+
+    # Guard: tek satır/sütun varsa bölme hatası olmasın
     if r < 2 or k < 2:
         return 0.0
-        
-    chi2 = chi2_contingency(confusion)[0]
-    n = confusion.to_numpy().sum()
+
+    chi2 = chi2_contingency(cm)[0]
+    n = cm.to_numpy().sum()
     return np.sqrt(chi2 / (n * (min(r, k) - 1)))
 
 # =============================================================================
