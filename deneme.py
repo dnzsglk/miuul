@@ -552,7 +552,7 @@ with col_t3:
     st.markdown("""
     <div style="text-align:center;">
         <div style="font-size:32px;">🤖</div>
-        <b>Ömer Çiçek</b><br/>
+        <b>Ömer faruk Çiçek</b><br/>
         <span style="font-size:13px; opacity:0.85;">Modeling & ML</span>
     </div>
     """, unsafe_allow_html=True)
@@ -561,7 +561,7 @@ with col_t4:
     st.markdown("""
     <div style="text-align:center;">
         <div style="font-size:32px;">🧩</div>
-        <b>Ece Metin</b><br/>
+        <b>Ece Yurdusevimli Metin</b><br/>
         <span style="font-size:13px; opacity:0.85;">Segmentation & CRM</span>
     </div>
     """, unsafe_allow_html=True)
