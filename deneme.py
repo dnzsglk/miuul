@@ -496,57 +496,153 @@ with tab_eda:
     # =============================================================================
     st.subheader("⚖️ Veri Dağılımı Kontrolü: Dengesiz Kategoriler")
 
-    st.markdown(
-        """
-        Bu veri setinde bazı kategorik değişkenlerin sınıfları **eşit dağılmıyor** (imbalance).
-        Bu durum özellikle sınıflandırma modelinde **yanlı tahmin** riskini artırabilir.
+    st.markdown("""
+    Bazı **kategorik değişkenlerde dengesiz dağılım** gözlemlenmiştir. Bu durum:
+    - Modelin **baskın sınıflara aşırı öğrenmesine**
+    - Az gözlemlenen kategorilerde **genellemenin zorlaşmasına**
+    neden olabilir.
 
-        **Ne yaptık?**
-        - **Train/Test split** sırasında hedef değişken için `stratify=SUBSCRIPTION_STATUS` kullandık → train/test sınıf oranı korunur.
-        - Kategorik değişkenleri **One-Hot Encoding** ile sayısallaştırdık (`get_dummies`).
-        - Ağaç tabanlı modellerde (özellikle RandomForest) **class_weight='balanced'** kullanarak dengesiz hedefin etkisini azalttık.
-        """
-    )
+    📌 **Önemli not:** Hiçbir alt kategori **\\%1’in altında** olmadığı için **rare encoding uygulanmamıştır**.
 
-    def plot_count_and_pct(df, col, title):
-        vc = df[col].value_counts(dropna=False)
-        pct = (vc / vc.sum() * 100).round(1)
-        plot_df = pd.DataFrame({col: vc.index.astype(str), "Count": vc.values, "Pct": pct.values})
+    **Ne yaptık?**
+    - **Train/Test split** sırasında hedef değişken için `stratify=SUBSCRIPTION_STATUS` kullandık → train/test sınıf oranı korunur.
+    - Kategorik değişkenleri **One-Hot Encoding** ile sayısallaştırdık (`get_dummies`).
+    - Ağaç tabanlı modellerde (özellikle RandomForest) **class_weight='balanced'** kullanarak dengesiz hedefin etkisini azalttık.
 
-        fig, ax = plt.subplots(figsize=(8, 4.8))
-        sns.barplot(data=plot_df, x="Count", y=col, ax=ax)
+    Bu yaklaşım:
+    - Kategorik temsil gücünü korur
+    - Gereksiz karmaşıklığı önler
+    """)
 
-        # yüzde etiketleri
-        for i, (cnt, p) in enumerate(zip(plot_df["Count"], plot_df["Pct"])):
-            ax.text(cnt, i, f"  {p:.1f}%", va="center")
+    col_pie1, col_pie2 = st.columns(2)
 
-        ax.set_title(title)
-        ax.set_xlabel("Adet (Count)")
-        ax.set_ylabel(col)
-        ax.grid(True, alpha=0.2, axis="x")
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
+    with col_pie1:
+        gender_counts = df_raw["GENDER"].value_counts()
+        fig_g, ax_g = plt.subplots(figsize=(6, 6))
+        ax_g.pie(
+            gender_counts.values,
+            labels=gender_counts.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            colors=sns.color_palette("Set2"),
+            wedgeprops={"edgecolor": "white"}
+        )
+        ax_g.set_title("Cinsiyet Dağılımı")
+        st.pyplot(fig_g)
+        plt.close(fig_g)
 
-    cA, cB = st.columns(2)
-    with cA:
-        plot_count_and_pct(df_raw, "GENDER", "Cinsiyet Dağılımı (Count ve %)")
-        plot_count_and_pct(df_raw, "SIZE", "Beden Dağılımı (Count ve %)")
-    with cB:
-        plot_count_and_pct(df_raw, "CATEGORY", "Kategori Dağılımı (Count ve %)")
-        plot_count_and_pct(df_raw, "SUBSCRIPTION_STATUS", "Abonelik Dağılımı (Count ve %)")
+    with col_pie2:
+        sub_counts = df_raw["SUBSCRIPTION_STATUS"].value_counts()
+        fig_s, ax_s = plt.subplots(figsize=(6, 6))
+        ax_s.pie(
+            sub_counts.values,
+            labels=sub_counts.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            colors=sns.color_palette("Pastel1"),
+            wedgeprops={"edgecolor": "white"}
+        )
+        ax_s.set_title("Abonelik Dağılımı (Target Balance)")
+        st.pyplot(fig_s)
+        plt.close(fig_s)
 
-    st.info(
-        """
-        **Özet (Model tarafı):**
-        - Dengesiz hedef (Subscription) olduğunda, stratified split + class_weight yaklaşımı modelin
-          sadece çoğunluğu tahmin etmesini engeller.
-        """
-    )
+    col_pie3, col_pie4 = st.columns(2)
 
-    st.divider()
+    with col_pie3:
+        size_counts = df_raw["SIZE"].value_counts()
+        fig_sz, ax_sz = plt.subplots(figsize=(6, 6))
+        ax_sz.pie(
+            size_counts.values,
+            labels=size_counts.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            colors=sns.color_palette("tab20"),
+            wedgeprops={"edgecolor": "white"}
+        )
+        ax_sz.set_title("Beden (Size) Dağılımı")
+        st.pyplot(fig_sz)
+        plt.close(fig_sz)
 
-    # Buradan sonra senin mevcut grafiklerin gelsin:
-    st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
+    with col_pie4:
+        cat_counts = df_raw["CATEGORY"].value_counts()
+        fig_cat, ax_cat = plt.subplots(figsize=(6, 6))
+        ax_cat.pie(
+            cat_counts.values,
+            labels=cat_counts.index,
+            autopct='%1.1f%%',
+            startangle=90,
+            colors=sns.color_palette("Spectral"),
+            wedgeprops={"edgecolor": "white"}
+        )
+        ax_cat.set_title("Kategori Dağılımı")
+        st.pyplot(fig_cat)
+        plt.close(fig_cat)
+
+    st.info("""
+    📌 **Modelleme Notu**
+    - Kategorik değişkenlerde \\%1 altı kategori olmadığı için **rare encoding yapılmadı**
+    - Kategoriler **one-hot encoding** ile modele dahil edildi
+    - Target dengesizliği için **class_weight** ve **threshold optimizasyonu** kullanıldı
+    """)
+
+    # =============================================================================
+    # 2) YÜKSEK İLİŞKİ: DISCOUNT_APPLIED vs PROMO_CODE_USED
+    # =============================================================================
+    st.subheader("🔗 Korelasyon Kontrolü: Discount Applied vs Promo Code")
+
+    if "DISCOUNT_APPLIED" in df_raw.columns and "PROMO_CODE_USED" in df_raw.columns:
+        ct = pd.crosstab(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"])
+        ct_norm = ct.div(ct.sum(axis=1), axis=0) * 100
+
+        colx, coly = st.columns(2)
+
+        with colx:
+            st.markdown("**Çapraz Tablo (Adet)**")
+            st.dataframe(ct)
+
+        with coly:
+            st.markdown("**Çapraz Tablo (Satır %)**")
+            st.dataframe(ct_norm.round(1).astype(str) + "%")
+
+        # Heatmap
+        figh, axh = plt.subplots(figsize=(7, 4.8))
+        sns.heatmap(ct_norm, annot=True, fmt=".1f", ax=axh)
+        axh.set_title("Discount Applied vs Promo Code Used (Satır %)")
+        axh.set_xlabel("PROMO_CODE_USED")
+        axh.set_ylabel("DISCOUNT_APPLIED")
+        st.pyplot(figh, use_container_width=True)
+        plt.close(figh)
+
+        # Cramer's V
+        cv = cramers_v(df_raw["DISCOUNT_APPLIED"], df_raw["PROMO_CODE_USED"])
+        st.metric("Cramer's V", f"{cv:.3f}")
+
+        st.markdown(
+            """
+            **Karar:**
+            Bu iki değişken aynı davranışı temsil ediyorsa (yüksek ilişki),
+            modelde ikisini birden tutmak **redundant** olur ve bazı modellerde gereksiz karmaşıklık yaratır.
+            Bu yüzden `DISCOUNT_APPLIED` değişkenini drop ettik.
+            """
+        )
+
+        # Drop kararını kodla göstermek
+        threshold = 0.80
+        if cv > threshold:
+            st.warning(f"Cramer's V = {cv:.3f} > {threshold} → `DISCOUNT_APPLIED` drop edilir (pipeline).")
+            st.code(
+                """
+    # Pipeline içinde:
+    if 'DISCOUNT_APPLIED' in df_rare.columns and 'PROMO_CODE_USED' in df_rare.columns:
+        cv_score = cramers_v(df_rare['DISCOUNT_APPLIED'], df_rare['PROMO_CODE_USED'])
+        if cv_score > 0.8:
+            df_rare.drop(columns=['DISCOUNT_APPLIED'], inplace=True)
+                    """.strip()
+                )
+            else:
+                st.success(f"Cramer's V = {cv:.3f} ≤ {threshold} → drop etmeye gerek yok.")
+        else:
+            st.info("Bu analiz için DISCOUNT_APPLIED ve PROMO_CODE_USED kolonları bulunamadı.")
 
     # Görselleştirmeler
     st.subheader("📊 Abonelik Odaklı Görselleştirmeler")
