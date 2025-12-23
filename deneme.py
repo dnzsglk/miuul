@@ -1574,36 +1574,33 @@ with tab_comp:
             # ✅ BURASI ARTIK LOOP DIŞINDA
             status_text2.text("✅ Test değerlendirmesi tamamlandı!")
 
-            # ==================== THRESHOLD ÖNCESİ (0.50) ÖZET TABLO ====================
-            st.subheader("📌 Threshold Öncesi (0.50) Performans Özeti")
+            # ==================== SADECE LOGISTIC REGRESSION: THRESHOLD ÖNCESİ (0.50) ====================
+            st.subheader("📌 Threshold Öncesi (0.50) — Sadece Logistic Regression")
 
-            default_df = (
-                pd.DataFrame(threshold_details_default)
-                .T
-                .reset_index()
-                .rename(columns={
-                    "index": "Model",
-                    "threshold": "Threshold",
-                    "precision": "Precision",
-                    "recall": "Recall",
-                    "f1": "F1-Score"
-                })
-            )
+            if "Logistic Regression" in threshold_details_default:
+                lr0 = threshold_details_default["Logistic Regression"]
+                lr0_df = pd.DataFrame([{
+                    "Model": "Logistic Regression",
+                    "Threshold": lr0["threshold"],
+                    "Precision": lr0["precision"],
+                    "Recall": lr0["recall"],
+                    "F1-Score": lr0["f1"]
+                }])
 
-            st.dataframe(
-                default_df.style
-                .background_gradient(cmap="YlGn", subset=["Precision", "Recall", "F1-Score"])
-                .format({
-                    "Threshold": "{:.2f}",
-                    "Precision": "{:.4f}",
-                    "Recall": "{:.4f}",
-                    "F1-Score": "{:.4f}",
-                }),
-                use_container_width=True,
-                hide_index=True
-            )
+                st.dataframe(
+                    lr0_df.style.format({
+                        "Threshold": "{:.2f}",
+                        "Precision": "{:.4f}",
+                        "Recall": "{:.4f}",
+                        "F1-Score": "{:.4f}",
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                 )
+                st.caption("ℹ️ Bu satır, optimizasyon yapılmadan önce varsayılan threshold=0.50 ile Logistic Regression sonuçlarını gösterir.")
+            else:
+                st.info("Logistic Regression bulunamadı.")
 
-            st.caption("ℹ️ Bu tablo, threshold optimizasyonu uygulanmadan önce varsayılan 0.50 ile elde edilen sonuçları gösterir.")
             st.divider()
             
             st.session_state["comparison_results"] = results
@@ -1637,24 +1634,6 @@ with tab_comp:
             st.success(f"🏆 **En İyi Model (F1-Score):** {best_f1_model}")
         with col_best2:
             st.info(f"📈 **En İyi Model (ROC-AUC):** {best_auc_model}")
-        
-        st.divider()
-        
-        # ==================== THRESHOLD DETAYLARI ====================
-        st.subheader("🎯 Threshold Optimizasyon Detayları")
-        
-        if 'threshold_details' in st.session_state:
-            threshold_df = pd.DataFrame(st.session_state['threshold_details']).T
-            threshold_df = threshold_df.reset_index().rename(columns={'index': 'Model'})
-            
-            st.dataframe(threshold_df.style.background_gradient(cmap='YlGn', subset=['precision', 'recall', 'f1']).format({
-                'threshold': '{:.2f}',
-                'precision': '{:.4f}',
-                'recall': '{:.4f}',
-                'f1': '{:.4f}'
-            }))
-            
-            st.caption("ℹ️ Threshold'lar Recall ≥ 0.85 hedefine göre optimize edildi. Precision maksimize edildi.")
         
         st.divider()
         
