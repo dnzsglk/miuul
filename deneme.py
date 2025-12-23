@@ -486,8 +486,7 @@ with tab_home:
 
     st.image(
         str(img_path),
-        use_container_width=True,
-        caption="Deconstruct Data. Reconstruct Value."
+        use_container_width=True"
     )
 
     st.divider()
@@ -543,9 +542,7 @@ with tab_home:
     st.subheader("📌 Business Problem")
 
     st.markdown("""
-    Bir e-ticaret şirketi;  
-    **müşteri aboneliğini artırmak**, **promosyon bütçesini verimli kullanmak** ve  
-    **müşteri davranışlarını daha iyi anlamak** istemektedir.
+    Bir e-ticaret şirketi; **müşteri aboneliğini artırmak**, **promosyon bütçesini verimli kullanmak** ve **müşteri davranışlarını daha iyi anlamak** istemektedir.
 
     Ancak müşteri tabanı:
     - Harcama düzeyi  
